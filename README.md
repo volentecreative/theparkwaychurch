@@ -49,7 +49,7 @@ version needed.
 | `data-dropdown-pass-through` | `0` | ms a tab must be hovered before it takes over; `0` is off |
 
 Slower-changing timings are constants at the top of the file: `SLIDE` (panel),
-`OPEN_IN`, `DRIFT_MS`, `HOVER_MS`, `SAFE_REST`, `SAFE_PAD`.
+`OPEN_IN`, `DRIFT_MS`, `HOVER_MS`, `SAFE_REST`, `SAFE_SLOPE`, `SAFE_PAD`.
 
 ### What the script sets inline
 

@@ -33,7 +33,8 @@
   var EASE = 'cubic-bezier(.2,.7,.2,1)';
   var HOVER_MS = 180; // ms for the link highlight to glide to the next link
   var HOVER_TINT = 'var(--brand--brand-100)'; // same tint as nav_dropdown-link:hover
-  var SAFE_REST = 200; // ms resting on a tab inside the safe triangle before it switches anyway
+  var SAFE_REST = 120; // ms resting on a tab inside the safe triangle before it switches anyway
+  var SAFE_SLOPE = 0.35; // how steeply down (dy/dx) the pointer must be moving to count as aiming at the panel
   var SAFE_PAD = 12; // px the safe triangle's base overhangs the panel on each side
 
   function init() {
@@ -264,7 +265,10 @@
       var p = pill.getBoundingClientRect();
       var l = { x: p.left + tgt.x0 - SAFE_PAD, y: p.bottom };
       var r = { x: p.left + tgt.x1 + SAFE_PAD, y: p.bottom };
-      if (pt.y <= apex.y + 0.5 || pt.y >= p.bottom) return false;
+      if (pt.y >= p.bottom) return false;
+      // Must be clearly heading down. Without this, a pointer low in the pill
+      // makes a nearly flat triangle and sideways moves between tabs get held.
+      if (pt.y - apex.y < SAFE_SLOPE * Math.abs(pt.x - apex.x) || pt.y - apex.y < 1) return false;
       var d1 = side(pt, apex, l);
       var d2 = side(pt, l, r);
       var d3 = side(pt, r, apex);
