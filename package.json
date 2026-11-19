@@ -1,0 +1,14 @@
+{
+  "name": "theparkwaychurch",
+  "version": "0.1.0",
+  "description": "Site code for The Parkway Church Webflow build, served from jsDelivr.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.js",
+    "check": "node --check dist/parkway.js && node --check dist/parkway-head.js"
+  },
+  "engines": {
+    "node": ">=18.17"
+  }
+}

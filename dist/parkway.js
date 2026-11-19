@@ -1,3 +1,123 @@
+/*! The Parkway Church site code v0.1.0. Built from src/, do not edit. */
+/* ---- src/buttons.js ---- */
+/* Arch button morph, and the nav pill shape that follows it.
+ * Why custom code: the hover morph tweens an SVG path "d" attribute, which the style
+ * panel cannot do. All styling (fill, stroke, colors, variants) is native.
+ * This script only (1) adds .is-ready, (2) sets the viewBox, (3) tweens the path "d".
+ * Geometry: the resting shape fills the button_type box exactly (matches the native pill);
+ * the hover tip overflows ~8px to the right into button_type's margin-right.
+ * Touch: the morph is skipped for touch pointers and for non-keyboard focus, so phones
+ * and tablets get no hover. Hover colors are switched off at tablet and below natively.
+ * Header: a Primary button at the right end of .nav_pill also drives the paths in
+ * .nav_pill-shape, so the pill edge follows the arch on hover (colors stay native).
+ * Tertiary: a plain underline drawn 0.2em below the label, with no hover morph.
+ */
+(function () {
+  var DUR = 700, K = 0.5523, STEP = 12;
+  var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var ease = function (t) { t = Math.min(1, t); return 1 - Math.exp(-10.5 * t) * (1 + 10.5 * t); };
+
+  function endPoints(E, i, arch) {
+    var r = 32 - i, k = K * r;
+    if (!arch) return [E, i,  E + k, i,  E + r, 32 - k,  E + r, 32,   E + r, 32,   E + r, 32,   E + r, 32 + k,  E + k, 64 - i,  E, 64 - i];
+    var a = i ? [20.18, 0.84, 39.92, 12.25, 49.88, 29.80, 51.15] : [20.85, 0, 40.30, 11.23, 50.75, 29.30, 52.30], b = E - STEP;
+    return [b, i,  b + a[0], a[1],  b + a[2], a[3],  b + a[4], a[5],   b + a[6], 32,   b + a[4], 64 - a[5],   b + a[2], 64 - a[3],  b + a[0], 64 - a[1],  b, 64 - i];
+  }
+  function toPath(W, i, p) {
+    var E = W - 32, r = 32 - i, k = K * r, A = endPoints(E, i, false), B = endPoints(E, i, true), n = [];
+    for (var j = 0; j < A.length; j++) n.push((A[j] + (B[j] - A[j]) * p).toFixed(2));
+    return 'M32 ' + i + ' L' + n[0] + ' ' + n[1] +
+      ' C' + n[2] + ' ' + n[3] + ' ' + n[4] + ' ' + n[5] + ' ' + n[6] + ' ' + n[7] +
+      ' L' + n[8] + ' ' + n[9] + ' L' + n[10] + ' ' + n[11] +
+      ' C' + n[12] + ' ' + n[13] + ' ' + n[14] + ' ' + n[15] + ' ' + n[16] + ' ' + n[17] +
+      ' L32 ' + (64 - i) +
+      ' C' + (32 - k) + ' ' + (64 - i) + ' ' + i + ' ' + (32 + k) + ' ' + i + ' 32' +
+      ' C' + i + ' ' + (32 - k) + ' ' + (32 - k) + ' ' + i + ' 32 ' + i + ' Z';
+  }
+  function toRule(W, y) { return 'M0 ' + y.toFixed(2) + ' L' + W.toFixed(2) + ' ' + y.toFixed(2); }
+  function transparent(c) { return !c || c === 'transparent' || /rgba\(\s*\d+,\s*\d+,\s*\d+,\s*0\)/.test(c); }
+
+  function setup(link) {
+    var box = link.querySelector('.button_type'), svg = link.querySelector('.button_shape');
+    var path = link.querySelector('.button_path'), label = link.querySelector('.button_label');
+    if (!box || !svg || !path || link.__arch) return;
+    link.__arch = true;
+
+    /* Which variant? Read from the native styling before switching to SVG rendering:
+       transparent + rounded = Secondary (outline), transparent + square = Tertiary (underline), else Primary. */
+    var cs = getComputedStyle(box);
+    var kind = transparent(cs.backgroundColor) ? (parseFloat(cs.borderRadius) === 0 ? 'underline' : 'outline') : 'fill';
+    var inset = kind === 'outline' ? 1 : 0;
+    box.classList.add('is-ready'); svg.classList.add('is-ready');
+
+    /* Header pill: when this button sits at the right end of .nav_pill, the pill outline is drawn
+       from the same arch geometry so its edge keeps an even offset from the button on hover. */
+    var pill = link.closest('.nav_pill'), pSvg = pill && pill.querySelector('.nav_pill-shape');
+    var pPath = pSvg && kind === 'fill' ? pSvg.querySelectorAll('path') : null, PW = 0, PI = 0, follow = false;
+    if (pPath && pPath.length) { pill.classList.add('is-ready'); pSvg.classList.add('is-ready'); } else pPath = null;
+
+    var W = 160, RY = 63, cur = 0, from = 0, target = 0, t0 = 0, raf = 0;
+    function draw() {
+      var d = kind === 'underline' ? toRule(W, RY) : toPath(W, inset, cur);
+      path.setAttribute('d', d);
+      if (pPath && PW) { var pd = toPath(PW, PI, follow ? cur : 0); pPath.forEach(function (n) { n.setAttribute('d', pd); }); }
+    }
+    function measure() {
+      var r = box.getBoundingClientRect(); if (!r.height) return;
+      W = r.width / r.height * 64; svg.setAttribute('viewBox', '0 0 ' + W + ' 64');
+      if (kind === 'underline' && label) {
+        /* Underline sits 0.2em under the label instead of at the bottom of the box. */
+        var lb = label.getBoundingClientRect();
+        RY = Math.min(63, (lb.bottom - r.top + 0.2 * parseFloat(getComputedStyle(label).fontSize)) / r.height * 64);
+      }
+      if (pPath) {
+        var q = pill.getBoundingClientRect();
+        PW = q.width / q.height * 64; PI = 32 / q.height; pSvg.setAttribute('viewBox', '0 0 ' + PW + ' 64');
+        follow = Math.abs((q.right - r.right) - (r.top - q.top)) < 3;
+      }
+      draw();
+    }
+    function tick(now) {
+      var p = ease((now - t0) / DUR); cur = from + (target - from) * p; draw();
+      if ((now - t0) < DUR) raf = requestAnimationFrame(tick); else { cur = target; draw(); raf = 0; }
+    }
+    function go(to) {
+      if (kind === 'underline' || (to === cur && !raf)) return;
+      target = to; if (reduce) { cur = to; draw(); return; }
+      from = cur; t0 = performance.now(); if (!raf) raf = requestAnimationFrame(tick);
+    }
+    function keyboardFocus() { try { return link.matches(':focus-visible'); } catch (e) { return true; } }
+    link.addEventListener('pointerenter', function (e) { if (e.pointerType !== 'touch') go(1); });
+    link.addEventListener('pointerleave', function () { go(0); });
+    link.addEventListener('focus', function () { if (keyboardFocus()) go(1); });
+    link.addEventListener('blur', function () { go(0); });
+    if (window.ResizeObserver) { var ro = new ResizeObserver(measure); ro.observe(box); if (pPath) ro.observe(pill); } else addEventListener('resize', measure);
+    measure(); if (document.fonts) document.fonts.ready.then(measure);
+  }
+  function init() { document.querySelectorAll('.button').forEach(setup); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+})();
+
+/* ---- src/nav-scroll.js ---- */
+/* Scroll-linked header. Why custom code: the pill follows the scroll 1:1 (slides away going down,
+   slides back going up), which needs the scroll direction; CSS and Webflow interactions can't read it.
+   Only sets a translateY on .nav_component. All header styling is native. */
+(function(){
+  var nav=document.querySelector('.nav_component'); if(!nav) return;
+  var last=Math.max(0,scrollY), off=0, max=0;
+  function size(){ max=nav.offsetTop+nav.offsetHeight+32; }
+  function set(){ nav.style.transform=off?'translateY('+(-off)+'px)':''; }
+  function onScroll(){
+    var end=document.documentElement.scrollHeight-innerHeight;
+    var y=Math.min(Math.max(0,scrollY),end), d=y-last; last=y;
+    off=y<=0?0:Math.min(max,Math.max(0,off+d)); set();
+  }
+  addEventListener('scroll',onScroll,{passive:true});
+  addEventListener('resize',size); size();
+  nav.addEventListener('focusin',function(){ off=0; set(); });
+})();
+
+/* ---- src/nav-dropdown.js ---- */
 /*!
  * The Parkway Church — connected nav dropdowns
  *
@@ -14,15 +134,16 @@
  *   nav_dropdown-list.is-leaving    list being left while Webflow's hover delay holds it open
  *   nav_dropdown-icon.is-open       chevron rotated
  *
- * Tuning lives in Webflow, as custom attributes on .nav_pill (all optional):
+ * Tuning lives in Webflow, as custom attributes on .nav_pill or any ancestor
+ * of it (all optional). vci- prefix, same shape as narthex settings:
  *
- *   data-dropdown-travel         px the links drift when switching        (16)
- *   data-dropdown-crossfade      ms for old and new links to crossfade     (110)
- *   data-dropdown-flip           true = new links enter from the other side (false)
- *   data-dropdown-safe-triangle  false = switch tabs the instant they are touched (true)
- *   data-dropdown-pass-through   ms a tab must be hovered before it takes over, 0 = off (0)
+ *   vci-dropdown-travel         px the links drift when switching        (16)
+ *   vci-dropdown-crossfade      ms for old and new links to crossfade     (110)
+ *   vci-dropdown-flip           true = new links enter from the other side (false)
+ *   vci-dropdown-safe-triangle  false = switch tabs the instant they are touched (true)
+ *   vci-dropdown-pass-through   ms a tab must be hovered before it takes over, 0 = off (0)
  *
- * Expects (from the narthex nav): .nav_pill > svg.nav_pill-shape > path.nav_pill-fill
+ * Expects (drawn by buttons.js): .nav_pill > svg.nav_pill-shape > path.nav_pill-fill
  */
 (function () {
   'use strict';
@@ -37,7 +158,7 @@
   var SAFE_SLOPE = 0.35; // how steeply down (dy/dx) the pointer must be moving to count as aiming at the panel
   var SAFE_PAD = 12; // px the safe triangle's base overhangs the panel on each side
 
-  // The pill's SVG is built by the narthex nav script, which may run after this one.
+  // The pill's SVG is sized and drawn by buttons.js, which may not have run yet.
   function shapeOf(pill) {
     var svg = pill.querySelector('.nav_pill-shape');
     return svg && svg.viewBox && svg.querySelector('.nav_pill-fill') ? svg : null;
@@ -51,19 +172,25 @@
     // Mouse-driven extras (gliding highlight, safe triangle, pass-through) need pointer events.
     var hasPointer = !!window.PointerEvent;
 
-    function num(key, fallback) {
-      var v = parseFloat(pill.dataset[key]);
+    // Settings: vci-dropdown-<name> on the pill, or on any ancestor (so one can sit on <html>).
+    function setting(name) {
+      var attr = 'vci-dropdown-' + name;
+      var el = pill.closest ? pill.closest('[' + attr + ']') : pill.hasAttribute(attr) ? pill : null;
+      return el ? el.getAttribute(attr) : null;
+    }
+    function num(name, fallback) {
+      var v = parseFloat(setting(name));
       return isFinite(v) ? v : fallback;
     }
-    function flag(key, fallback) {
-      var v = pill.dataset[key];
-      return v === undefined || v === '' ? fallback : v !== 'false' && v !== '0';
+    function flag(name, fallback) {
+      var v = setting(name);
+      return v === null || v === '' ? fallback : v !== 'false' && v !== '0';
     }
-    var TRAVEL = num('dropdownTravel', 16);
-    var CROSSFADE = Math.max(0, num('dropdownCrossfade', 110));
-    var FLIP = flag('dropdownFlip', false);
-    var SAFE = flag('dropdownSafeTriangle', true);
-    var PASS_MS = hasPointer ? Math.max(0, num('dropdownPassThrough', 0)) : 0;
+    var TRAVEL = num('travel', 16);
+    var CROSSFADE = Math.max(0, num('crossfade', 110));
+    var FLIP = flag('flip', false);
+    var SAFE = flag('safe-triangle', true);
+    var PASS_MS = hasPointer ? Math.max(0, num('pass-through', 0)) : 0;
 
     var icons = lists.map(function (l) {
       return l.parentElement.querySelector('.nav_dropdown-icon');
@@ -436,7 +563,7 @@
     }
 
     function draw(moving) {
-      if (!svg.isConnected) svg = shapeOf(pill) || svg; // narthex rebuilt the pill
+      if (!svg.isConnected) svg = shapeOf(pill) || svg; // the pill SVG was replaced
       if (path.parentNode !== svg) svg.appendChild(path);
       layout(moving);
       if (cur.h < 0.5) {
@@ -535,10 +662,10 @@
   function start() {
     var pill = document.querySelector('.nav_pill');
     // No pill, an engine too old to bother with, or this file included twice: stay stock.
-    if (!pill || !window.MutationObserver || !window.requestAnimationFrame || !pill.classList || pill.hasAttribute('data-dropdown-ready')) return;
-    pill.setAttribute('data-dropdown-ready', '');
+    if (!pill || !window.MutationObserver || !window.requestAnimationFrame || !pill.classList || pill.__dropdown) return;
+    pill.__dropdown = true;
     if (shapeOf(pill)) return safeInit(pill);
-    // narthex has not drawn the pill yet: connect as soon as it does.
+    // The pill has not been drawn yet: connect as soon as it is.
     var wait = new MutationObserver(function () {
       if (!shapeOf(pill)) return;
       wait.disconnect();
