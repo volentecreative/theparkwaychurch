@@ -43,5 +43,5 @@ highlight is doing their hover.
 
 ### Tuning
 
-Constants at the top of the file: `SLIDE`, `OPEN_IN`, `SWAP_OUT`, `SWAP_IN`,
+Constants at the top of the file: `SLIDE`, `LINK_IN`, `LINK_OUT`, `LINK_SHIFT`,
 `HOVER_MS`, `HOVER_TINT`.

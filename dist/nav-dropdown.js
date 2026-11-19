@@ -19,9 +19,9 @@
   'use strict';
 
   var SLIDE = 0.22; // seconds for the shape to settle on a new dropdown
-  var OPEN_IN = 280; // ms, links easing in on a fresh open
-  var SWAP_OUT = 50; // ms, old links fading out when switching dropdowns
-  var SWAP_IN = 90; // ms, new links fading in once the old ones are gone
+  var LINK_IN = 280; // ms, links entering
+  var LINK_OUT = 140; // ms, links leaving
+  var LINK_SHIFT = 16; // px the links travel sideways when switching dropdowns
   var EASE = 'cubic-bezier(.2,.7,.2,1)';
   var HOVER_MS = 180; // ms for the link highlight to glide to the next link
   var HOVER_TINT = 'var(--brand--brand-100)'; // same tint as nav_dropdown-link:hover
@@ -162,20 +162,20 @@
 
     function animateLinks(list, dir, entering) {
       if (reduce.matches || !list.animate) return;
-      // Switching dropdowns fades through zero: the old links are gone before
-      // the new ones start, while the panel slides and resizes underneath.
-      // A fresh open (dir 0) has nothing to wait for, so it eases in.
-      var frames = entering
-        ? [{ opacity: 0, transform: dir ? 'none' : 'translateY(-4px)' }, { opacity: 1, transform: 'none' }]
-        : [{ opacity: 1 }, { opacity: 0 }];
-      var timing = entering
-        ? dir
-          ? { duration: SWAP_IN, delay: SWAP_OUT, easing: 'ease-out', fill: 'backwards' }
-          : { duration: OPEN_IN, easing: EASE, fill: 'backwards' }
-        : { duration: SWAP_OUT, easing: 'ease-in', fill: 'forwards' };
+      var dx = dir * LINK_SHIFT;
       Array.prototype.forEach.call(list.children, function (el) {
         if (el.classList.contains('nav_dropdown-highlight')) return;
-        running.push(el.animate(frames, timing));
+        // Links travel with the cursor: enter from behind it, leave ahead of it.
+        var frames = entering
+          ? [{ opacity: 0, transform: dir ? 'translateX(' + -dx + 'px)' : 'translateY(-4px)' }, { opacity: 1, transform: 'none' }]
+          : [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateX(' + dx + 'px)' }];
+        running.push(
+          el.animate(frames, {
+            duration: entering ? LINK_IN : LINK_OUT,
+            easing: entering ? EASE : 'ease-in',
+            fill: entering ? 'backwards' : 'forwards'
+          })
+        );
       });
     }
 
