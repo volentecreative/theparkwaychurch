@@ -37,13 +37,19 @@
   var SAFE_SLOPE = 0.35; // how steeply down (dy/dx) the pointer must be moving to count as aiming at the panel
   var SAFE_PAD = 12; // px the safe triangle's base overhangs the panel on each side
 
-  function init() {
-    var pill = document.querySelector('.nav_pill');
-    var svg = pill && pill.querySelector('.nav_pill-shape');
-    var fill = svg && svg.querySelector('.nav_pill-fill');
-    var lists = pill ? Array.prototype.slice.call(pill.querySelectorAll('.nav_dropdown-list')) : [];
+  // The pill's SVG is built by the narthex nav script, which may run after this one.
+  function shapeOf(pill) {
+    var svg = pill.querySelector('.nav_pill-shape');
+    return svg && svg.viewBox && svg.querySelector('.nav_pill-fill') ? svg : null;
+  }
+
+  function init(pill) {
+    var svg = shapeOf(pill);
+    var lists = Array.prototype.slice.call(pill.querySelectorAll('.nav_dropdown-list'));
     // Anything missing: leave the stock dropdowns alone.
-    if (!svg || !fill || !lists.length || !svg.viewBox || !window.MutationObserver) return;
+    if (!svg || !lists.length) return;
+    // Mouse-driven extras (gliding highlight, safe triangle, pass-through) need pointer events.
+    var hasPointer = !!window.PointerEvent;
 
     function num(key, fallback) {
       var v = parseFloat(pill.dataset[key]);
@@ -57,7 +63,7 @@
     var CROSSFADE = Math.max(0, num('dropdownCrossfade', 110));
     var FLIP = flag('dropdownFlip', false);
     var SAFE = flag('dropdownSafeTriangle', true);
-    var PASS_MS = Math.max(0, num('dropdownPassThrough', 0));
+    var PASS_MS = hasPointer ? Math.max(0, num('dropdownPassThrough', 0)) : 0;
 
     var icons = lists.map(function (l) {
       return l.parentElement.querySelector('.nav_dropdown-icon');
@@ -70,7 +76,7 @@
 
     var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     path.setAttribute('class', 'nav_pill-drop');
-    path.setAttribute('fill', getComputedStyle(fill).fill);
+    path.setAttribute('fill', getComputedStyle(svg.querySelector('.nav_pill-fill')).fill);
 
     var cur = { x0: 0, x1: 0, h: 0 };
     var tgt = { x0: 0, x1: 0, h: 0 };
@@ -87,6 +93,7 @@
     var pending = null; // list waiting to take over (safe triangle / pass-through)
     var pendingWhy = '';
     var pendingTimer = 0;
+    var booting = true; // first pass: adopt whatever is already open without animating
     var pt = null; // pointer now
     var anchor = null; // pointer a few px ago
     var apex = null; // pointer a few px before that: the safe triangle's tip
@@ -188,6 +195,7 @@
         // Engaged: the highlight replaces each link's own hover background.
         // Disengaged (mobile menu): the links' native :hover is back in charge.
         engage: function (on) {
+          on = on && hasPointer; // without pointer events the links keep their own :hover
           if (on === engaged) return;
           engaged = on;
           list.style.isolation = on ? 'isolate' : '';
@@ -208,8 +216,14 @@
       });
     }
 
+    function setClip(l, value) {
+      if (l.style.clipPath === value) return;
+      l.style.webkitClipPath = value; // Safari before 13.1
+      l.style.clipPath = value;
+    }
+
     function release(l) {
-      if (l.style.clipPath) l.style.clipPath = '';
+      setClip(l, '');
       l.style.visibility = '';
       l.style.display = '';
     }
@@ -225,7 +239,9 @@
       prev = dir ? active : null;
       switching = !!dir;
 
-      if (next && !dir) {
+      if (booting) {
+        // Already open when the script arrived (slow connection): take it over as it stands.
+      } else if (next && !dir) {
         // Fresh open: nothing to hand over from, so the links just ease in.
         animate(next, [{ opacity: 0, transform: 'translateY(-4px)' }, { opacity: 1, transform: 'none' }], { duration: OPEN_IN, easing: EASE, fill: 'backwards' });
       } else if (dir) {
@@ -386,36 +402,41 @@
       var sB = p.bottom + cur.h;
       var rad = Math.min(radius, cur.h / 2).toFixed(1);
       if (!moving) switching = false;
-      lists.forEach(function (l) {
+      // Read every rect first, then write, so a frame costs one layout at most.
+      var jobs = lists.map(function (l) {
         var leaving = l === prev && switching;
-        if (!isOpen(l) && !leaving) {
+        if (!isOpen(l) && !leaving) return 'release';
+        if (l === active && !moving) return 'settle';
+        if (l !== active && !leaving) return 'hide';
+        return { leaving: leaving, rect: l.getBoundingClientRect() };
+      });
+      lists.forEach(function (l, i) {
+        var job = jobs[i];
+        if (job === 'release') {
           release(l);
-          return;
-        }
-        if (l === active && !moving) {
+        } else if (job === 'settle') {
           // Settled: unclipped, so focus rings are not cut.
-          if (l.style.clipPath) l.style.clipPath = '';
+          setClip(l, '');
           l.style.visibility = '';
-          return;
-        }
-        if (l !== active && !leaving) {
+        } else if (job === 'hide') {
           // Held open by Webflow's hover delay but not part of this transition.
           l.style.visibility = 'hidden';
           if (l === prev) l.style.display = '';
-          return;
+        } else {
+          // Keep the list being left on screen for the crossfade even if Webflow closes it mid-way.
+          if (job.leaving && l.style.display !== 'block') l.style.display = 'block';
+          l.style.visibility = '';
+          var r = job.rect;
+          var left = Math.max(0, sL - r.left).toFixed(1);
+          var right = Math.max(0, r.right - sR).toFixed(1);
+          var bottom = Math.max(0, r.bottom - sB).toFixed(1);
+          setClip(l, 'inset(0px ' + right + 'px ' + bottom + 'px ' + left + 'px round 0px 0px ' + rad + 'px ' + rad + 'px)');
         }
-        // Keep the list being left on screen for the crossfade even if Webflow closes it mid-way.
-        if (leaving) l.style.display = 'block';
-        l.style.visibility = '';
-        var r = l.getBoundingClientRect();
-        var left = Math.max(0, sL - r.left).toFixed(1);
-        var right = Math.max(0, r.right - sR).toFixed(1);
-        var bottom = Math.max(0, r.bottom - sB).toFixed(1);
-        l.style.clipPath = 'inset(0px ' + right + 'px ' + bottom + 'px ' + left + 'px round 0 0 ' + rad + 'px ' + rad + 'px)';
       });
     }
 
     function draw(moving) {
+      if (!svg.isConnected) svg = shapeOf(pill) || svg; // narthex rebuilt the pill
       if (path.parentNode !== svg) svg.appendChild(path);
       layout(moving);
       if (cur.h < 0.5) {
@@ -496,15 +517,34 @@
     window.addEventListener('resize', relayout);
     if (window.ResizeObserver) new ResizeObserver(relayout).observe(pill);
     relayout();
+    cur.x0 = tgt.x0;
+    cur.x1 = tgt.x1;
+    cur.h = tgt.h;
+    booting = false;
   }
 
-  function start() {
+  function safeInit(pill) {
     try {
-      init();
+      init(pill);
     } catch (e) {
       // Never let this take the nav down; the stock dropdown still works.
       if (window.console) console.warn('[nav-dropdown] disabled:', e);
     }
+  }
+
+  function start() {
+    var pill = document.querySelector('.nav_pill');
+    // No pill, an engine too old to bother with, or this file included twice: stay stock.
+    if (!pill || !window.MutationObserver || !window.requestAnimationFrame || !pill.classList || pill.hasAttribute('data-dropdown-ready')) return;
+    pill.setAttribute('data-dropdown-ready', '');
+    if (shapeOf(pill)) return safeInit(pill);
+    // narthex has not drawn the pill yet: connect as soon as it does.
+    var wait = new MutationObserver(function () {
+      if (!shapeOf(pill)) return;
+      wait.disconnect();
+      safeInit(pill);
+    });
+    wait.observe(pill, { childList: true, subtree: true });
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
