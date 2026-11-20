@@ -1,4 +1,4 @@
-/*! The Parkway Church site code v0.6.0. Built from src/, do not edit. */
+/*! The Parkway Church site code v0.6.1. Built from src/, do not edit. */
 /* ---- src/buttons.js ---- */
 /* Arch button morph, and the nav pill shape that follows it.
  * Why custom code: the hover morph tweens an SVG path "d" attribute, which the style
@@ -882,7 +882,9 @@
       var at = i * gap;
       s.animate([{ strokeDashoffset: L }, { strokeDashoffset: 0 }],
         { delay: at, duration: each * 0.75, easing: 'cubic-bezier(.45,.05,.35,1)', fill: 'forwards' });
-      last = s.animate([{ fillOpacity: 0 }, { fillOpacity: 1 }],
+      // The ink fills in and the outline melts into it, so the last frame is exactly the real
+      // text (no weight change when the overlay is swapped out).
+      last = s.animate([{ fillOpacity: 0, strokeOpacity: 1 }, { fillOpacity: 1, strokeOpacity: 1, offset: 0.6 }, { fillOpacity: 1, strokeOpacity: 0 }],
         { delay: at + each * 0.45, duration: each * 0.55, easing: 'ease-out', fill: 'forwards' });
     });
     last.finished.then(function () {

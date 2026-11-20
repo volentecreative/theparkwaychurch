@@ -26,13 +26,13 @@ Source is ES5-compatible browser JS, because nothing transpiles it.
 Head code:
 
 ```html
-<script src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.6.0/dist/parkway-head.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.6.1/dist/parkway-head.min.js"></script>
 ```
 
 Footer code, alongside the narthex nav tag:
 
 ```html
-<script defer src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.6.0/dist/parkway.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.6.1/dist/parkway.min.js"></script>
 ```
 
 jsDelivr minifies on request when the URL ends in `.min.js`, and only serves
@@ -74,8 +74,14 @@ version needed.
 
 `src/script-draw.js`: each `.text-style-script` (or any element with `vci-draw`)
 writes itself on the first time it scrolls into view: letter by letter, left to
-right, each outline is traced and then filled. Nothing is clipped, so swashes
-are never cut off. The real text is only hidden while
+right, each outline is traced and then filled, and the outline melts into the
+fill so the last frame is exactly the real text. Nothing is clipped, so swashes
+are never cut off.
+
+Script swashes reach well outside the text box (up to ~0.4em left for "Fall"),
+and Safari only paints text inside its box. So `text-style-script` carries
+padding (2rem left, 1rem elsewhere) cancelled by equal negative margins: room for
+the ink, no change to layout. The real text is only hidden while
 it plays and is restored afterwards. Skipped for reduced motion, wrapped
 lettering, and lettering that contains other elements.
 
