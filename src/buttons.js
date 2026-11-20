@@ -32,6 +32,24 @@
       ' C' + (32 - k) + ' ' + (64 - i) + ' ' + i + ' ' + (32 + k) + ' ' + i + ' 32' +
       ' C' + i + ' ' + (32 - k) + ' ' + (32 - k) + ' ' + i + ' 32 ' + i + ' Z';
   }
+  /* Light from above: a whisper of white at the top fading out by the middle, a touch of shade at
+     the bottom edge. Alpha only, so it works over every fill color and its hover transition. */
+  var shineId = 0;
+  function shineFor(svg) {
+    var ns = 'http://www.w3.org/2000/svg', id = 'button-shine-' + (++shineId);
+    var defs = document.createElementNS(ns, 'defs'), g = document.createElementNS(ns, 'linearGradient');
+    g.setAttribute('id', id); g.setAttribute('x1', '0'); g.setAttribute('y1', '0'); g.setAttribute('x2', '0'); g.setAttribute('y2', '1');
+    [['0', '#fff', '0.16'], ['0.5', '#fff', '0'], ['0.75', '#000', '0'], ['1', '#000', '0.12']].forEach(function (s) {
+      var stop = document.createElementNS(ns, 'stop');
+      stop.setAttribute('offset', s[0]); stop.setAttribute('stop-color', s[1]); stop.setAttribute('stop-opacity', s[2]);
+      g.appendChild(stop);
+    });
+    defs.appendChild(g); svg.appendChild(defs);
+    var p = document.createElementNS(ns, 'path');
+    p.setAttribute('class', 'button_shine'); p.setAttribute('fill', 'url(#' + id + ')');
+    svg.appendChild(p);
+    return p;
+  }
   function toRule(W, y) { return 'M0 ' + y.toFixed(2) + ' L' + W.toFixed(2) + ' ' + y.toFixed(2); }
   function transparent(c) { return !c || c === 'transparent' || /rgba\(\s*\d+,\s*\d+,\s*\d+,\s*0\)/.test(c); }
 
@@ -47,6 +65,13 @@
     var kind = transparent(cs.backgroundColor) ? (parseFloat(cs.borderRadius) === 0 ? 'underline' : 'outline') : 'fill';
     var inset = kind === 'outline' ? 1 : 0;
     box.classList.add('is-ready'); svg.classList.add('is-ready');
+    /* Filled buttons: a second path with the same outline carries a soft light-to-shade gradient
+       (a CSS gradient could not follow the arch). The drop shadow is native, on .button_shape.is-fill. */
+    var shine = null;
+    if (kind === 'fill') {
+      svg.classList.add('is-fill');
+      shine = shineFor(svg);
+    }
 
     /* Header pill: when this button sits at the right end of .nav_pill, the pill outline is drawn
        from the same arch geometry so its edge keeps an even offset from the button on hover. */
@@ -58,6 +83,7 @@
     function draw() {
       var d = kind === 'underline' ? toRule(W, RY) : toPath(W, inset, cur);
       path.setAttribute('d', d);
+      if (shine) shine.setAttribute('d', d);
       if (pPath && PW) { var pd = toPath(PW, PI, follow ? cur : 0); pPath.forEach(function (n) { n.setAttribute('d', pd); }); }
     }
     function measure() {

@@ -5,7 +5,7 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 const version = JSON.parse(readFileSync('package.json', 'utf8')).version;
 const bundles = {
   // footer: order matters. buttons draws the pill that nav-dropdown hangs off.
-  'dist/parkway.js': ['src/buttons.js', 'src/nav-scroll.js', 'src/nav-dropdown.js'],
+  'dist/parkway.js': ['src/buttons.js', 'src/nav-scroll.js', 'src/nav-dropdown.js', 'src/script-draw.js'],
   // head: has to run before images start loading.
   'dist/parkway-head.js': ['src/image-sizes-fix.js'],
 };
