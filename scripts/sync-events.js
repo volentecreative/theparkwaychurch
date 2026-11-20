@@ -1,18 +1,20 @@
-// Google Calendar -> Webflow CMS "Events" sync. Run by .github/workflows/sync-events.yml.
+// Church calendar (iCal feed) -> Webflow CMS "Events" sync. Run by .github/workflows/sync-events.yml.
 //
-// Reads the church's public Google Calendar, then makes the Events collection match the
-// upcoming events: creates new ones, updates changed ones, removes past, cancelled and deleted
-// ones, and publishes what changed. Items are matched by the "Google event ID" field, so it is
-// safe to run as often as you like; an unchanged calendar makes no writes.
+// Reads the church's public iCal feed (Church Community Builder's public calendar), expands
+// repeating events, then makes the Events collection match the upcoming events: creates new
+// ones, updates changed ones, removes past, cancelled and deleted ones, and publishes what
+// changed. Items are matched by the "Event ID" field (slug google-event-id, kept from the first
+// version), so it is safe to run as often as you like; an unchanged calendar makes no writes.
 //
 // Env (secrets marked *):
-//   GOOGLE_API_KEY *        API key with the Google Calendar API enabled
-//   GOOGLE_CALENDAR_ID      e.g. abc123@group.calendar.google.com (calendar must be public)
+//   EVENTS_ICAL_URL         the public .ics feed (webcal:// is fine)
 //   WEBFLOW_TOKEN *         Webflow site API token with CMS read + write
 //   WEBFLOW_COLLECTION_ID   the Events collection
 //   EVENTS_DAYS_AHEAD       how far ahead to sync (default 120)
 //   EVENTS_SKIP             optional regex; events whose title matches are left out (case-insensitive)
-//   EVENTS_TIMEZONE         display timezone for the Time text (default America/Chicago)
+//   EVENTS_HOME             regex for the church's own address, left off the card's Details line
+//                           so on-site events show a room ("Chapel") or nothing (default below)
+//   EVENTS_TIMEZONE         display timezone, and for feed times with no zone (default America/Chicago)
 //   DRY_RUN=1               log what would change, write nothing
 
 const env = process.env;
@@ -20,6 +22,7 @@ const TZ = env.EVENTS_TIMEZONE || 'America/Chicago';
 const DAYS = Number(env.EVENTS_DAYS_AHEAD || 120);
 const SKIP = env.EVENTS_SKIP ? new RegExp(env.EVENTS_SKIP, 'i') : null;
 const DRY = env.DRY_RUN === '1';
+const HOME = new RegExp(env.EVENTS_HOME || '5600 Virginia|^The Parkway Church$|McKinney|TX 750', 'i');
 const WF = 'https://api.webflow.com/v2';
 
 function need(name) {
@@ -95,10 +98,13 @@ export function toFields(ev) {
   const end = allDay ? noonOn(minusDay(ev.end?.date || ev.start.date))
     : ev.end?.dateTime ? new Date(ev.end.dateTime) : null;
   const name = (ev.summary || 'Untitled event').trim();
-  const location = (ev.location || '').trim();
+  const location = (ev.location || '').replace(/\s+/g, ' ').trim();
   const time = timeText(ev);
+  // On-site events: show the room ("Chapel") rather than the church's own address.
+  const place = location.split(/\s*,\s*/).filter((part) => part && !HOME.test(part)).join(', ');
   // Recurring instances share a title, so the date and a bit of the id keep slugs unique.
-  const id = String(ev.id).replace(/[^a-z0-9]/gi, '').toLowerCase();
+  let h = 5381; for (const c of String(ev.id)) h = ((h * 33) ^ c.charCodeAt(0)) >>> 0;
+  const id = h.toString(36);
   const date = (ev.start.date || ev.start.dateTime).slice(0, 10).replace(/-/g, '');
   return {
     name: name.slice(0, 256),
@@ -108,34 +114,172 @@ export function toFields(ev) {
     'all-day': allDay,
     time,
     location,
-    details: location ? `${time} · ${location}` : time,
+    details: place ? `${time} · ${place}` : time,
     description: plain(ev.description).slice(0, 2000),
     'calendar-link': ev.htmlLink || null,
     'google-event-id': String(ev.id),
   };
 }
 
-/* ---------- Google ---------- */
+/* ---------- iCal ---------- */
 
-async function googleEvents() {
-  const now = new Date();
-  const until = new Date(now.getTime() + DAYS * 864e5);
+// Offset of a timezone from UTC at an instant, in ms.
+function tzOffset(ms, tz) {
+  const p = {};
+  for (const { type, value } of new Intl.DateTimeFormat('en-US', {
+    timeZone: tz, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric',
+    hour: 'numeric', minute: 'numeric', second: 'numeric',
+  }).formatToParts(new Date(ms))) p[type] = Number(value);
+  return Date.UTC(p.year, p.month - 1, p.day, p.hour % 24, p.minute, p.second) - ms;
+}
+// A wall-clock time in a timezone -> the instant (ms).
+function zoned(y, mo, d, h, mi, sec, tz) {
+  const guess = Date.UTC(y, mo - 1, d, h, mi, sec);
+  let ms = guess - tzOffset(guess, tz);
+  ms = guess - tzOffset(ms, tz); // settle across a DST change
+  return ms;
+}
+
+function unescape(v) {
+  return v.replace(/\\n/gi, '\n').replace(/\\([,;\\])/g, '$1');
+}
+
+// "DTSTART;TZID=America/Chicago:20260201T090000" -> { date: true|false, y.., ms }
+function parseWhen(params, value, tz) {
+  const m = value.match(/^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})(Z)?)?$/);
+  if (!m) return null;
+  const [y, mo, d] = [+m[1], +m[2], +m[3]];
+  if (!m[4] || /VALUE=DATE(?!-)/.test(params)) return { date: true, y, mo, d };
+  const [h, mi, sec] = [+m[4], +m[5], +m[6]];
+  const zone = (params.match(/TZID=([^;:]+)/) || [])[1];
+  const ms = m[7] ? Date.UTC(y, mo - 1, d, h, mi, sec) : zoned(y, mo, d, h, mi, sec, zone || tz);
+  return { date: false, y, mo, d, h, mi, sec, ms, tz: m[7] ? 'UTC' : zone || tz };
+}
+
+export function parseIcs(text) {
+  const lines = text.replace(/\r\n/g, '\n').replace(/\n[ \t]/g, '').split('\n');
+  const cal = { tz: null, events: [] };
+  let ev = null;
+  for (const line of lines) {
+    if (line === 'BEGIN:VEVENT') { ev = { exdates: [] }; continue; }
+    if (line === 'END:VEVENT') { cal.events.push(ev); ev = null; continue; }
+    const i = line.indexOf(':'); if (i < 0) continue;
+    const head = line.slice(0, i), value = line.slice(i + 1);
+    const name = head.split(';')[0].toUpperCase(), params = head.slice(name.length);
+    if (!ev) { if (name === 'X-WR-TIMEZONE') cal.tz = value.trim(); continue; }
+    if (name === 'EXDATE') ev.exdates.push(...value.split(',').map((v) => [params, v.trim()]));
+    else ev[name] = name === 'DTSTART' || name === 'DTEND' || name === 'RECURRENCE-ID' ? [params, value.trim()] : value;
+  }
+  return cal;
+}
+
+const DAY = 864e5, WD = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
+const ymd = (t) => { const d = new Date(t); return [d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate()]; };
+const pad = (n) => String(n).padStart(2, '0');
+
+// Calendar days (as UTC-midnight ms) an RRULE produces, in order, from the first event's date.
+function* ruleDays(rule, y, mo, d) {
+  const r = Object.fromEntries(rule.split(';').map((kv) => kv.split('=')));
+  const freq = r.FREQ, step = Math.max(1, +(r.INTERVAL || 1));
+  const first = Date.UTC(y, mo - 1, d);
+  const byday = r.BYDAY ? r.BYDAY.split(',').map((t) => { const m = t.match(/^([+-]?\d+)?([A-Z]{2})$/); return { n: m[1] ? +m[1] : 0, wd: WD.indexOf(m[2]) }; }) : null;
+  const bymonthday = r.BYMONTHDAY ? r.BYMONTHDAY.split(',').map(Number) : null;
+  for (let k = 0; k < 5000; k++) {
+    let days = [];
+    if (freq === 'DAILY') days = [first + k * step * DAY];
+    else if (freq === 'WEEKLY') {
+      const wkst = WD.indexOf(r.WKST || 'MO');
+      const weekStart = first - ((new Date(first).getUTCDay() - wkst + 7) % 7) * DAY + k * step * 7 * DAY;
+      const want = byday ? byday.map((b) => b.wd) : [new Date(first).getUTCDay()];
+      for (let i = 0; i < 7; i++) { const t = weekStart + i * DAY; if (want.includes(new Date(t).getUTCDay())) days.push(t); }
+    } else if (freq === 'MONTHLY' || freq === 'YEARLY') {
+      const months = freq === 'MONTHLY' ? 1 : 12;
+      const base = new Date(Date.UTC(y, mo - 1 + k * step * months, 1));
+      const Y = base.getUTCFullYear(), M = base.getUTCMonth();
+      const len = new Date(Date.UTC(Y, M + 1, 0)).getUTCDate();
+      if (byday) {
+        for (const b of byday) {
+          const all = [];
+          for (let dd = 1; dd <= len; dd++) if (new Date(Date.UTC(Y, M, dd)).getUTCDay() === b.wd) all.push(Date.UTC(Y, M, dd));
+          if (!b.n) days.push(...all); else { const t = b.n > 0 ? all[b.n - 1] : all[all.length + b.n]; if (t) days.push(t); }
+        }
+      } else for (const md of bymonthday || [d]) { const dd = md > 0 ? md : len + md + 1; if (dd >= 1 && dd <= len) days.push(Date.UTC(Y, M, dd)); }
+      days.sort((a, b) => a - b);
+    } else { yield first; return; } // unsupported rule: just the first date
+    for (const t of days) if (t >= first) yield t;
+  }
+}
+
+// One VEVENT -> the instances (Google-Calendar-shaped, so toFields can stay as it is) between
+// from and until.
+export function instances(ev, calTz, from, until) {
+  const tz = calTz || TZ;
+  const s = parseWhen(ev.DTSTART[0], ev.DTSTART[1], tz); if (!s) return [];
+  const e = ev.DTEND ? parseWhen(ev.DTEND[0], ev.DTEND[1], tz) : null;
+  const dateStr = (t) => { const [Y, M, D] = ymd(t); return `${Y}-${pad(M)}-${pad(D)}`; };
+  const len = s.date ? (e ? Math.round((Date.UTC(e.y, e.mo - 1, e.d) - Date.UTC(s.y, s.mo - 1, s.d)) / DAY) : 1) : e ? e.ms - s.ms : 0;
+  const ex = new Set(ev.exdates.map(([p, v]) => { const w = parseWhen(p, v, s.tz || tz); return !w ? null : w.date ? `d${w.y}${pad(w.mo)}${pad(w.d)}` : w.ms; }));
+  const rule = ev.RRULE ? Object.fromEntries(ev.RRULE.split(';').map((kv) => kv.split('='))) : {};
+  const untilRule = rule.UNTIL ? parseWhen('', rule.UNTIL, s.tz || tz) : null;
+  const untilMs = untilRule ? (untilRule.date ? Date.UTC(untilRule.y, untilRule.mo - 1, untilRule.d) + DAY - 1 : untilRule.ms) : Infinity;
+  const count = rule.COUNT ? +rule.COUNT : Infinity;
   const out = [];
-  let pageToken;
-  do {
-    const q = new URLSearchParams({
-      key: need('GOOGLE_API_KEY'), singleEvents: 'true', orderBy: 'startTime',
-      timeMin: now.toISOString(), timeMax: until.toISOString(), maxResults: '250',
+  const days = ev.RRULE ? ruleDays(ev.RRULE, s.y, s.mo, s.d) : [Date.UTC(s.y, s.mo - 1, s.d)];
+  let n = 0;
+  for (const day of days) {
+    const [Y, M, D] = ymd(day);
+    const startMs = s.date ? Date.UTC(Y, M - 1, D) : zoned(Y, M, D, s.h, s.mi, s.sec, s.tz);
+    if (startMs > untilMs || n >= count) break;
+    n++;
+    const endMs = s.date ? startMs + len * DAY : startMs + len;
+    if ((s.date ? endMs : Math.max(endMs, startMs + 1)) <= from || ex.has(startMs) || ex.has(`d${Y}${pad(M)}${pad(D)}`)) continue;
+    if (startMs > until) break;
+    const key = s.date ? `${Y}${pad(M)}${pad(D)}` : `${Y}${pad(M)}${pad(D)}T${pad(s.h)}${pad(s.mi)}`;
+    out.push({
+      id: ev.RRULE ? `${ev.UID}_${key}` : ev.UID,
+      summary: unescape(ev.SUMMARY || ''),
+      location: unescape(ev.LOCATION || ''),
+      description: unescape(ev.DESCRIPTION || '').replace(/^Group:[^\n]*\n?/, ''),
+      htmlLink: ev.URL || null,
+      start: s.date ? { date: dateStr(startMs) } : { dateTime: new Date(startMs).toISOString() },
+      end: s.date ? { date: dateStr(endMs) } : { dateTime: new Date(endMs).toISOString() },
+      status: (ev.STATUS || '').toLowerCase(),
+      recurrenceKey: key,
     });
-    if (pageToken) q.set('pageToken', pageToken);
-    const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(need('GOOGLE_CALENDAR_ID'))}/events?${q}`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`Google Calendar ${res.status}: ${(await res.text()).slice(0, 500)}`);
-    const body = await res.json();
-    out.push(...(body.items || []));
-    pageToken = body.nextPageToken;
-  } while (pageToken);
-  return out.filter((ev) => ev.status !== 'cancelled' && !(SKIP && SKIP.test(ev.summary || '')));
+  }
+  return out;
+}
+
+export function upcoming(text, now = Date.now()) {
+  const cal = parseIcs(text);
+  const until = now + DAYS * DAY;
+  const all = [], moved = new Map();
+  for (const ev of cal.events) {
+    if (ev['RECURRENCE-ID']) { // a single changed occurrence of a repeating event
+      const w = parseWhen(ev['RECURRENCE-ID'][0], ev['RECURRENCE-ID'][1], cal.tz || TZ);
+      if (w) moved.set(`${ev.UID}_${w.date ? `${w.y}${pad(w.mo)}${pad(w.d)}` : `${w.y}${pad(w.mo)}${pad(w.d)}T${pad(w.h)}${pad(w.mi)}`}`, ev);
+      continue;
+    }
+    all.push(...instances(ev, cal.tz, now, until));
+  }
+  const out = [];
+  for (const inst of all) {
+    const o = moved.get(inst.id);
+    if (o) {
+      const [r] = instances({ ...o, RRULE: undefined }, cal.tz, now, until);
+      if (r) out.push({ ...r, id: inst.id });
+    } else out.push(inst);
+  }
+  return out
+    .filter((ev) => ev.status !== 'cancelled' && !(SKIP && SKIP.test(ev.summary)))
+    .sort((a, b) => new Date(a.start.dateTime || a.start.date) - new Date(b.start.dateTime || b.start.date));
+}
+
+async function calendarEvents() {
+  const url = need('EVENTS_ICAL_URL').replace(/^webcal:/i, 'https:');
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Calendar feed ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  return upcoming(await res.text());
 }
 
 /* ---------- Webflow ---------- */
@@ -190,7 +334,7 @@ function differs(item, fields) {
 
 export async function sync() {
   const cid = need('WEBFLOW_COLLECTION_ID');
-  const events = await googleEvents();
+  const events = await calendarEvents();
   const items = await webflowItems(cid);
   const byGid = new Map();
   const strays = []; // items without an id, or duplicates: not ours to keep

@@ -1,6 +1,6 @@
 name: Sync calendar events
 
-# Copies upcoming events from the church's Google Calendar into the Webflow
+# Copies upcoming events from the church's public CCB calendar (iCal) into the Webflow
 # "Events" collection. See scripts/sync-events.js and the README.
 on:
   schedule:
@@ -30,11 +30,12 @@ jobs:
           node-version: 20
       - run: node scripts/sync-events.js
         env:
-          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
           WEBFLOW_TOKEN: ${{ secrets.WEBFLOW_TOKEN }}
-          GOOGLE_CALENDAR_ID: ${{ vars.GOOGLE_CALENDAR_ID }}
-          WEBFLOW_COLLECTION_ID: ${{ vars.WEBFLOW_COLLECTION_ID }}
+          WEBFLOW_COLLECTION_ID: ${{ vars.WEBFLOW_COLLECTION_ID || '6b005da0bd484318dd94b6dd' }}
+          EVENTS_ICAL_URL: ${{ vars.EVENTS_ICAL_URL || 'https://theparkwaychurch.ccbchurch.com/w_calendar_sub.ics?strip_html=true' }}
+          # The weekly gatherings are already in the homepage schedule; keep them out of the cards.
+          EVENTS_SKIP: ${{ vars.EVENTS_SKIP || '^(Worship Service|Evening Prayer Service|Youth|Theological Equipping Class)' }}
+          EVENTS_HOME: ${{ vars.EVENTS_HOME }}
           EVENTS_DAYS_AHEAD: ${{ vars.EVENTS_DAYS_AHEAD }}
-          EVENTS_SKIP: ${{ vars.EVENTS_SKIP }}
           EVENTS_TIMEZONE: ${{ vars.EVENTS_TIMEZONE }}
           DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}

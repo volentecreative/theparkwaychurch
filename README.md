@@ -14,7 +14,7 @@ measurements and mobile menu) still comes from
 | `src/nav-dropdown.js` | Connected nav dropdowns (see below). |
 | `src/script-draw.js` | Draw-on for `.text-style-script` lettering when it scrolls into view. |
 | `src/image-sizes-fix.js` | Sets each image's `sizes` to its rendered width. Same fix as The North Church. |
-| `scripts/sync-events.js` | Google Calendar → Webflow CMS Events sync. Run hourly by `.github/workflows/sync-events.yml`. |
+| `scripts/sync-events.js` | Church calendar (CCB iCal) → Webflow CMS Events sync. Run hourly by `.github/workflows/sync-events.yml`. |
 | `scripts/build.js` | Concatenates `src/` into `dist/`. No transpile, no minify. |
 | `dist/parkway.js` | **Committed.** Footer bundle: buttons, nav-scroll, nav-dropdown, in that order. |
 | `dist/parkway-head.js` | **Committed.** Head bundle: image-sizes-fix. |
@@ -26,13 +26,13 @@ Source is ES5-compatible browser JS, because nothing transpiles it.
 Head code:
 
 ```html
-<script src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.4.0/dist/parkway-head.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.5.0/dist/parkway-head.min.js"></script>
 ```
 
 Footer code, alongside the narthex nav tag:
 
 ```html
-<script defer src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.4.0/dist/parkway.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.5.0/dist/parkway.min.js"></script>
 ```
 
 jsDelivr minifies on request when the URL ends in `.min.js`, and only serves
@@ -45,14 +45,15 @@ Edit `src/` → `npm run build` → `npm run check` → commit (including `dist/
 
 ## Scroll-linked header
 
-`src/nav-scroll.js` only adds and removes `is-hidden` on `.nav_component`: on
-when the page scrolls down, off when it scrolls up or is near the top. The
-motion is all in the Webflow style panel:
+`src/nav-scroll.js` only switches classes on `.nav_component`; the motion is all
+in the Webflow style panel:
 
-| class | what is set |
-| --- | --- |
-| `nav_component` | `position: fixed`, `transition: transform 300ms` |
-| `nav_component` + combo `is-hidden` | `transform: translate(0, calc(-100% - 2rem))` |
+| state | classes | what is set |
+| --- | --- | --- |
+| top of the page | none | `position: absolute`, `transition: transform 300ms`. It scrolls away with the page. |
+| scrolling up, mid-page | `is-pinned` | `position: fixed`; slides in from above |
+| scrolling down, mid-page | `is-pinned is-hidden` | `transform: translate(0, calc(-100% - 2rem))`; slides out |
+| back at the very top | none | |
 
 Change the speed, easing or distance there; no new script version needed.
 
@@ -81,22 +82,27 @@ copies the button outline with a light-to-shade gradient. The gradient lives in
 
 The homepage "Upcoming events" list is a Collection List of the Webflow
 **Events** collection. A GitHub Action (`.github/workflows/sync-events.yml`)
-runs `scripts/sync-events.js` every hour: it reads the church's public Google
-Calendar and makes the collection match the upcoming events. New events are
-created, edited ones updated, and past, cancelled or deleted ones removed.
-Changes are published straight away. Edit events in Google Calendar, never in
-the CMS: the next run overwrites CMS edits.
+runs `scripts/sync-events.js` every hour. It reads the church's public calendar
+in Church Community Builder (CCB) as an iCal feed, expands repeating events, and
+makes the collection match the upcoming events. New events are created, edited
+ones updated, and past, cancelled or deleted ones removed. Changes are published
+straight away. Edit events in CCB, never in the CMS: the next run overwrites CMS
+edits.
 
-Setup (repository → Settings → Secrets and variables → Actions):
+Feed: `https://theparkwaychurch.ccbchurch.com/w_calendar_sub.ics?strip_html=true`
+(the "subscribe" link on the church's public CCB calendar). No API key needed.
 
-| name | kind | value |
+Setup (repository → Settings → Secrets and variables → Actions): one secret,
+`WEBFLOW_TOKEN` (a Webflow site API token with CMS read and write). Everything
+else has a default in the workflow and can be overridden with a variable:
+
+| variable | default | what it does |
 | --- | --- | --- |
-| `GOOGLE_API_KEY` | secret | Google Cloud API key with the Google Calendar API enabled |
-| `WEBFLOW_TOKEN` | secret | Webflow site API token with CMS read and write |
-| `GOOGLE_CALENDAR_ID` | variable | e.g. `abc123@group.calendar.google.com`. The calendar must be public. |
-| `WEBFLOW_COLLECTION_ID` | variable | `6b005da0bd484318dd94b6dd` (Events) |
-| `EVENTS_DAYS_AHEAD` | variable, optional | how far ahead to sync; default `120` |
-| `EVENTS_SKIP` | variable, optional | regex; events whose title matches are left out, e.g. `^Sunday Worship` |
+| `EVENTS_SKIP` | `^(Worship Service\|Evening Prayer Service\|Youth\|Theological Equipping Class)` | regex; matching titles are left out. The weekly gatherings are already in the homepage schedule. |
+| `EVENTS_HOME` | `5600 Virginia\|^The Parkway Church$\|McKinney\|TX 750` | address parts left off the card, so on-site events show just the room |
+| `EVENTS_DAYS_AHEAD` | `120` | how far ahead to sync |
+| `EVENTS_ICAL_URL` | the CCB feed above | calendar feed |
+| `WEBFLOW_COLLECTION_ID` | `6b005da0bd484318dd94b6dd` | the Events collection |
 
 GitHub only runs scheduled workflows from the default branch, so the hourly
 run starts once this is merged to `main`. Run it by hand from the Actions tab
@@ -104,9 +110,10 @@ run starts once this is merged to `main`. Run it by hand from the Actions tab
 change without writing.
 
 Fields the sync writes: Name, Slug, Start, End, All day, Time (`6:30–8pm`,
-`All day`, `Through Tue, Dec 8`), Location, Details (Time · Location),
-Description (plain text), Calendar link, Google event ID (the match key). All-day
-events are stored at noon Central so the date never shifts a day.
+`All day`, `Through Tue, Dec 8`), Location (full), Details (Time · room),
+Description (plain text), Event ID (the match key; its slug is `google-event-id`
+from the first version). All-day events are stored at noon Central so the date
+never shifts a day.
 
 ## Connected nav dropdowns
 
