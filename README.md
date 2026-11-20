@@ -12,7 +12,8 @@ measurements and mobile menu) still comes from
 | `src/buttons.js` | Arch button morph, and the nav pill shape that follows it. |
 | `src/nav-scroll.js` | Header slides away on scroll down and back on scroll up. Closes an open dropdown after 8px of scrolling down. |
 | `src/nav-dropdown.js` | Connected nav dropdowns (see below). |
-| `src/script-draw.js` | Draw-on for `.text-style-script` lettering. **Not in the bundle for now** (re-add it to `scripts/build.js` to bring it back). |
+| `src/script-draw.js` | Trim-path write-on for `.text-style-script` lettering. |
+| `src/script-draw-paths.js` | **Generated** pen lines per word, from `scripts/trim-paths/`. |
 | `src/image-sizes-fix.js` | Sets each image's `sizes` to its rendered width. Same fix as The North Church. |
 | `scripts/sync-events.js` | Church calendar (CCB iCal) → Webflow CMS Events sync. Run hourly by `.github/workflows/sync-events.yml`. |
 | `scripts/build.js` | Concatenates `src/` into `dist/`. No transpile, no minify. |
@@ -26,13 +27,13 @@ Source is ES5-compatible browser JS, because nothing transpiles it.
 Head code:
 
 ```html
-<script src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.7.0/dist/parkway-head.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.8.0/dist/parkway-head.min.js"></script>
 ```
 
 Footer code, alongside the narthex nav tag:
 
 ```html
-<script defer src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.7.0/dist/parkway.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.8.0/dist/parkway.min.js"></script>
 ```
 
 jsDelivr minifies on request when the URL ends in `.min.js`, and only serves
@@ -70,30 +71,27 @@ in the same direction.
 Change the speed and easing on `nav_component`'s transition; no new script
 version needed.
 
-## Script lettering draw-on
+## Script lettering write-on
 
-**Switched off for now:** `src/script-draw.js` is kept but not built into
-`dist/parkway.js`. To bring it back, add it to the footer bundle list in
-`scripts/build.js`.
+Like an After Effects trim path: each `.text-style-script` word is revealed
+along a single pen line, written left to right the way you would draw it, the
+first time it scrolls into view. The final frame is exactly the real text,
+which then takes over.
 
-`src/script-draw.js`: each `.text-style-script` (or any element with `vci-draw`)
-writes itself on the first time it scrolls into view: letter by letter, left to
-right, each outline is traced and then filled, and the outline melts into the
-fill so the last frame is exactly the real text. Nothing is clipped, so swashes
-are never cut off.
-
-Script swashes reach well outside the text box (up to ~0.4em left for "Fall"),
-and Safari only paints text inside its box. So `text-style-script` carries
-padding (2rem left, 1rem elsewhere) cancelled by equal negative margins: room for
-the ink, no change to layout. The real text is only hidden while
-it plays and is restored afterwards. Skipped for reduced motion, wrapped
-lettering, and lettering that contains other elements.
+A font only has outlines, so each word's pen line is generated ahead of time
+(see `scripts/trim-paths/README.md`). Current words: Winter, Spring, Summer,
+Fall. Any other word simply shows without the write-on. Skipped for reduced
+motion.
 
 | attribute | default | what it does |
 | --- | --- | --- |
 | `vci-draw="false"` | | leave this element alone |
-| `vci-draw-duration` | `2200` | ms for the whole draw |
-| `vci-draw-stroke` | `0.018` | outline width, as a fraction of the font size |
+| `vci-draw-duration` | `1800` | ms for the whole word |
+
+Script swashes reach well outside the text box (up to ~0.4em left for "Fall"),
+and Safari only paints text inside its box. So `text-style-script` carries
+padding (2rem left, 1rem elsewhere) cancelled by equal negative margins. That
+gives the ink room without changing layout.
 
 ## Button depth
 
