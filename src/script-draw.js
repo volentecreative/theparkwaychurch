@@ -67,9 +67,7 @@
       fill: 'none', stroke: '#fff', 'stroke-width': data.width * 1.6, 'stroke-linecap': 'round', 'stroke-linejoin': 'round'
     });
     var strokes = data.paths.map(function (p) {
-      // One dash the length of the path, then a longer gap: starting just past the dash means
-      // nothing at all is drawn yet (a zero-length dash would still show its round cap).
-      var path = el('path', { d: p.d, pathLength: 1, 'stroke-dasharray': '1 2', 'stroke-dashoffset': 1.02 });
+      var path = el('path', { d: p.d });
       pen.appendChild(path);
       return path;
     });
@@ -84,24 +82,32 @@
     if (cs.position === 'static') host.style.position = 'relative';
     host.appendChild(svg);
 
-    // Timing: the pen moves at a steady speed, so each stroke takes time in proportion to its
-    // length, with a short lift between strokes. Twigs (little hooks hanging off a stroke) start
-    // when the pen passes them.
-    var dur = setting(host, 'duration', 1800), LIFT = 60;
-    var tops = data.paths.filter(function (p) { return p.parent == null; });
-    var total = tops.reduce(function (s, p) { return s + p.len; }, 0) || 1;
-    var speed = (dur - LIFT * (tops.length - 1)) / total; // ms per em of pen line
-    var start = [], length = [], end = 0, t = 0;
+    // One continuous pen. All strokes sit end to end on a single line (twigs, the little hooks
+    // hanging off a stroke, start where the pen passes them), and one ease runs over the whole
+    // word, so it reads as a single movement rather than separate strokes.
+    // Lengths are measured (getTotalLength), not normalised with pathLength, which Safari can
+    // ignore for dashes.
+    var len = strokes.map(function (s) { return s.getTotalLength() || 0.001; });
+    var from = [], span = 0, total = 0;
     data.paths.forEach(function (p, i) {
-      var d = Math.max(80, p.len * speed);
-      if (p.parent == null) { start[i] = t; t += d + LIFT; }
-      else start[i] = start[p.parent] + p.at * length[p.parent];
-      length[i] = d;
-      end = Math.max(end, start[i] + d);
+      if (p.parent == null) { from[i] = total; total += len[i]; }
+      else from[i] = from[p.parent] + p.at * len[p.parent];
+      span = Math.max(span, from[i] + len[i]);
     });
+    var dur = setting(host, 'duration', 1800), STEPS = 48;
+    var ease = function (t) { return 0.5 - 0.5 * Math.cos(Math.PI * t); }; // gentle in and out
     var anims = strokes.map(function (path, i) {
-      return path.animate([{ strokeDashoffset: 1.02 }, { strokeDashoffset: 0 }],
-        { delay: start[i], duration: length[i], easing: data.paths[i].parent == null ? 'cubic-bezier(.4,0,.6,1)' : 'ease-out', fill: 'forwards' });
+      var L = len[i];
+      // One dash the length of the stroke, then a longer gap; offset just past the dash so
+      // nothing shows before the pen arrives (a zero-length dash would still draw its round cap).
+      path.setAttribute('stroke-dasharray', L + ' ' + (L + 1));
+      path.setAttribute('stroke-dashoffset', L + 0.01);
+      var frames = [];
+      for (var k = 0; k <= STEPS; k++) {
+        var drawn = Math.min(1, Math.max(0, (ease(k / STEPS) * span - from[i]) / L));
+        frames.push({ offset: k / STEPS, strokeDashoffset: drawn ? L * (1 - drawn) : L + 0.01 });
+      }
+      return path.animate(frames, { duration: dur, easing: 'linear', fill: 'forwards' });
     });
     Promise.all(anims.map(function (a) { return a.finished; })).then(function () {
       host.style.color = '';
