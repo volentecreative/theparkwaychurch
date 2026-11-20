@@ -1,6 +1,6 @@
 {
   "name": "theparkwaychurch",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Site code for The Parkway Church Webflow build, served from jsDelivr.",
   "private": true,
   "type": "module",

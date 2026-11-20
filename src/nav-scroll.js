@@ -1,61 +1,20 @@
-/* Scroll-linked header. Why custom code: the pill follows the scroll 1:1 (slides away going down,
-   slides back going up), which needs the scroll direction; CSS and Webflow interactions can't read it.
-   All header styling is native; this only moves .nav_component.
+/* Scroll-linked header: a class switcher. Why custom code: hiding the header on the way down and
+   showing it on the way up needs the scroll direction, which CSS and Webflow interactions can't read.
 
-   How it moves: never by restyling it on every scroll event. Phones (iOS above all) scroll on the
-   compositor and deliver scroll events a frame late, so a fixed header nudged by translateY each
-   event trails the page and judders. Instead the header has three resting states:
-     top     fully shown: its native position: fixed.
-     page    part-way: position: absolute at the spot in the page where it currently is, so the
-             browser scrolls it with the content natively, with no script in the loop.
-     hidden  fully scrolled away: fixed again, translated just off the top of the screen.
-   Styles are written only when the state changes, so a scroll is one write at each end.
+   All the look and motion is in the Webflow style panel:
+     nav_component            position: fixed, plus transition: transform
+     nav_component.is-hidden  transform that moves it off the top of the screen
+   This only adds and removes is-hidden. The header is always fixed, so it can never leave a gap
+   at the top of the screen however fast the page is flung. If this file doesn't load, the header
+   simply stays put.
 
-   Also closes an open nav dropdown once the page scrolls down a few px, so a menu never hangs
-   half off screen while the header slides away. Scrolling up leaves it alone, and a dropdown
-   holding keyboard focus stays open. */
+   Also closes an open nav dropdown when the header hides, so a menu never hangs off screen.
+   A dropdown holding keyboard focus stays open, and focus inside the header shows it again. */
 (function(){
   var nav=document.querySelector('.nav_component'); if(!nav) return;
-  var CLOSE_AFTER=8; // px of continuous downward scroll before an open dropdown closes
-  var GAP=32; // px past the header's own height it travels before counting as hidden
-  var s=nav.style;
-  var last=Math.max(0,scrollY), off=0, max=0, down=0;
-  var base=0; // the header's fixed top, px
-  var cbTop=0; // page y of what position: absolute measures from
-  var mode='top', pageTop=null;
-
-  function size(){
-    // Read the native fixed position, not whatever this script last set.
-    var p=s.position, t=s.top, tr=s.transform;
-    s.position=''; s.top=''; s.transform='';
-    base=parseFloat(getComputedStyle(nav).top)||0;
-    max=base+nav.offsetHeight+GAP;
-    s.position=p; s.top=t; s.transform=tr;
-    // position: absolute is measured from the nearest positioned ancestor, else the page itself.
-    cbTop=0;
-    for(var el=nav.parentElement; el && el!==document.body && el!==document.documentElement; el=el.parentElement){
-      if(getComputedStyle(el).position!=='static'){ cbTop=el.getBoundingClientRect().top+scrollY+el.clientTop; break; }
-    }
-    pageTop=null; place();
-  }
-
-  function place(){
-    var next=off<=0?'top':off>=max?'hidden':'page';
-    if(next==='page'){
-      // Where the header sits in the page. While the scroll keeps it part-way this does not
-      // change, so nothing is written and the browser does all the moving.
-      var top=last-off+base;
-      if(mode==='page' && pageTop!==null && Math.abs(top-pageTop)<0.5) return;
-      pageTop=top;
-      s.transform=''; s.top=(top-cbTop)+'px'; s.position='absolute';
-    }else{
-      if(next===mode) return;
-      pageTop=null;
-      s.position=''; s.top='';
-      s.transform=next==='hidden'?'translateY('+(-max)+'px)':'';
-    }
-    mode=next;
-  }
+  var HIDDEN='is-hidden';
+  var TOLERANCE=6; // px of travel in one direction before the header reacts (ignores jitter)
+  var last=Math.max(0,scrollY), travel=0;
 
   // Close through Webflow's own dropdown handler, so its fade, classes and aria all reset.
   function closeDropdowns(){
@@ -68,15 +27,24 @@
     }
   }
 
+  function hide(on){
+    if(nav.classList.contains(HIDDEN)===on) return;
+    if(on && nav.contains(document.activeElement)) return;
+    nav.classList.toggle(HIDDEN,on);
+    if(on) closeDropdowns();
+  }
+
   function onScroll(){
+    // Clamp: iOS rubber-banding past either end reports scroll that isn't real.
     var end=document.documentElement.scrollHeight-innerHeight;
     var y=Math.min(Math.max(0,scrollY),end), d=y-last; last=y;
-    off=y<=0?0:Math.min(max,Math.max(0,off+d)); place();
-    down=d>0?down+d:d<0?0:down;
-    if(down>CLOSE_AFTER) closeDropdowns();
+    if(!d) return;
+    travel=(d>0)===(travel>0)?travel+d:d; // restarts when the direction flips
+    if(y<=nav.offsetHeight) return hide(false); // never hidden while near the top
+    if(travel>TOLERANCE) hide(true);
+    else if(travel<-TOLERANCE) hide(false);
   }
 
   addEventListener('scroll',onScroll,{passive:true});
-  addEventListener('resize',size); size();
-  nav.addEventListener('focusin',function(){ off=0; place(); });
+  nav.addEventListener('focusin',function(){ hide(false); });
 })();
