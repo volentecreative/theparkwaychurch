@@ -38,4 +38,6 @@ jobs:
           EVENTS_HOME: ${{ vars.EVENTS_HOME }}
           EVENTS_DAYS_AHEAD: ${{ vars.EVENTS_DAYS_AHEAD }}
           EVENTS_TIMEZONE: ${{ vars.EVENTS_TIMEZONE }}
+          # Demo mode for styling the cards: 1 (= 6 events) or a number. Remove the variable before launch.
+          EVENTS_DEMO: ${{ vars.EVENTS_DEMO }}
           DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}

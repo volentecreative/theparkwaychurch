@@ -169,6 +169,14 @@ else has a default in the workflow and can be overridden with a variable:
 | `EVENTS_DAYS_AHEAD` | `120` | how far ahead to sync |
 | `EVENTS_ICAL_URL` | the CCB feed above | calendar feed |
 | `WEBFLOW_COLLECTION_ID` | `6b005da0bd484318dd94b6dd` | the Events collection |
+| `EVENTS_DEMO` | off | demo mode, see below |
+
+**Demo mode.** To design the event cards while the calendar has nothing coming up, set the
+variable `EVENTS_DEMO` to `1` (six events) or any number. Each run then tops the list up to that
+many with the calendar's most recent past events (one per title), moved forward by whole weeks so
+their weekday, time, room and description stay real. Real upcoming events always come first;
+demo items only fill the gap. Their Event ID starts with `demo:`. **Delete the variable before
+launch**: the next run removes every demo item and publishes the change.
 
 GitHub only runs scheduled workflows from the default branch, so the hourly
 run starts once this is merged to `main`. Run it by hand from the Actions tab

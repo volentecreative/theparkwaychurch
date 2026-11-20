@@ -15,6 +15,10 @@
 //   EVENTS_HOME             regex for the church's own address, left off the card's Details line
 //                           so on-site events show a room ("Chapel") or nothing (default below)
 //   EVENTS_TIMEZONE         display timezone, and for feed times with no zone (default America/Chicago)
+//   EVENTS_DEMO             demo mode for designing the cards: 1 (= 6) or a number. Tops the list up
+//                           to that many with the feed's recent past events moved forward by whole
+//                           weeks (real titles, rooms and descriptions). Real upcoming events always
+//                           come first. Unset it and the next run removes the demo items.
 //   DRY_RUN=1               log what would change, write nothing
 
 const env = process.env;
@@ -22,6 +26,8 @@ const TZ = env.EVENTS_TIMEZONE || 'America/Chicago';
 const DAYS = Number(env.EVENTS_DAYS_AHEAD || 120);
 const SKIP = env.EVENTS_SKIP ? new RegExp(env.EVENTS_SKIP, 'i') : null;
 const DRY = env.DRY_RUN === '1';
+const DEMO = !env.EVENTS_DEMO || env.EVENTS_DEMO === '0' || env.EVENTS_DEMO === 'false' ? 0
+  : env.EVENTS_DEMO === '1' || env.EVENTS_DEMO === 'true' ? 6 : Math.max(0, Number(env.EVENTS_DEMO) || 0);
 const HOME = new RegExp(env.EVENTS_HOME || '5600 Virginia|^The Parkway Church$|McKinney|TX 750', 'i');
 const WF = 'https://api.webflow.com/v2';
 
@@ -275,11 +281,55 @@ export function upcoming(text, now = Date.now()) {
     .sort((a, b) => new Date(a.start.dateTime || a.start.date) - new Date(b.start.dateTime || b.start.date));
 }
 
+// "20261115T123000" + 21 days -> "20261206T123000" (wall clock kept, so DST can't move the hour)
+function shiftDays(value, days) {
+  const m = value.match(/^(\d{4})(\d{2})(\d{2})(.*)$/);
+  if (!m) return value;
+  const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3] + days));
+  return `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}${m[4]}`;
+}
+
+// Demo mode: up to `count` sample events made from the feed's most recent past one-off events
+// (one per title), each moved forward by whole weeks so it keeps its weekday and time and lands
+// about a week after the previous one. Ids start with "demo:" so they never collide with real ones.
+export function demo(text, count, now = Date.now()) {
+  if (count <= 0) return [];
+  const cal = parseIcs(text);
+  const past = [];
+  for (const ev of cal.events) {
+    if (ev.RRULE || ev['RECURRENCE-ID'] || !ev.DTSTART || (ev.STATUS || '').toLowerCase() === 'cancelled') continue;
+    const [inst] = instances(ev, cal.tz, -Infinity, Infinity);
+    if (!inst || (SKIP && SKIP.test(inst.summary))) continue;
+    const t = new Date(inst.start.dateTime || inst.start.date + 'T12:00:00Z').getTime();
+    if (t < now) past.push({ ev, t, title: inst.summary.replace(/\([^)]*\)/g, '').trim().toLowerCase() }); // "Membership Class (11/15/26)" = one title
+  }
+  past.sort((a, b) => b.t - a.t);
+  const seen = new Set(), out = [];
+  for (const p of past) {
+    if (out.length >= count) break;
+    if (seen.has(p.title)) continue;
+    seen.add(p.title);
+    const target = now + (out.length + 1) * 7 * DAY;
+    const weeks = Math.max(1, Math.round((target - p.t) / (7 * DAY)));
+    const shifted = { ...p.ev,
+      DTSTART: [p.ev.DTSTART[0], shiftDays(p.ev.DTSTART[1], weeks * 7)],
+      DTEND: p.ev.DTEND && [p.ev.DTEND[0], shiftDays(p.ev.DTEND[1], weeks * 7)] };
+    const [inst] = instances(shifted, cal.tz, now, Infinity);
+    if (inst) out.push({ ...inst, id: `demo:${inst.id}_${inst.recurrenceKey}`, htmlLink: null });
+  }
+  return out;
+}
+
 async function calendarEvents() {
   const url = need('EVENTS_ICAL_URL').replace(/^webcal:/i, 'https:');
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Calendar feed ${res.status}: ${(await res.text()).slice(0, 300)}`);
-  return upcoming(await res.text());
+  const text = await res.text();
+  const real = upcoming(text);
+  const fill = demo(text, DEMO - real.length);
+  if (fill.length) console.log(`EVENTS_DEMO is on: adding ${fill.length} demo event(s). Unset it before launch.`);
+  return real.concat(fill)
+    .sort((a, b) => new Date(a.start.dateTime || a.start.date) - new Date(b.start.dateTime || b.start.date));
 }
 
 /* ---------- Webflow ---------- */
@@ -356,7 +406,7 @@ export async function sync() {
 
   console.log(`Calendar: ${events.length} upcoming. Webflow: ${items.length} items. ` +
     `Create ${create.length}, update ${update.length}, remove ${remove.length}.`);
-  for (const f of create) console.log('  + ' + f.slug);
+  for (const f of create) console.log('  + ' + f.slug + (f['google-event-id'].startsWith('demo:') ? ' (demo)' : ''));
   for (const u of update) console.log('  ~ ' + u.fields.slug);
   for (const it of remove) console.log('  - ' + (it.fieldData?.slug || it.id));
   if (DRY) { console.log('DRY_RUN: nothing written.'); return { create, update, remove }; }
