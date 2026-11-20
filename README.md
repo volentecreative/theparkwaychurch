@@ -12,7 +12,7 @@ measurements and mobile menu) still comes from
 | `src/buttons.js` | Arch button morph, and the nav pill shape that follows it. |
 | `src/nav-scroll.js` | Header slides away on scroll down and back on scroll up. Closes an open dropdown after 8px of scrolling down. |
 | `src/nav-dropdown.js` | Connected nav dropdowns (see below). |
-| `src/script-draw.js` | Draw-on for `.text-style-script` lettering when it scrolls into view. |
+| `src/script-draw.js` | Draw-on for `.text-style-script` lettering. **Not in the bundle for now** (re-add it to `scripts/build.js` to bring it back). |
 | `src/image-sizes-fix.js` | Sets each image's `sizes` to its rendered width. Same fix as The North Church. |
 | `scripts/sync-events.js` | Church calendar (CCB iCal) → Webflow CMS Events sync. Run hourly by `.github/workflows/sync-events.yml`. |
 | `scripts/build.js` | Concatenates `src/` into `dist/`. No transpile, no minify. |
@@ -26,13 +26,13 @@ Source is ES5-compatible browser JS, because nothing transpiles it.
 Head code:
 
 ```html
-<script src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.6.1/dist/parkway-head.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.7.0/dist/parkway-head.min.js"></script>
 ```
 
 Footer code, alongside the narthex nav tag:
 
 ```html
-<script defer src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.6.1/dist/parkway.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.7.0/dist/parkway.min.js"></script>
 ```
 
 jsDelivr minifies on request when the URL ends in `.min.js`, and only serves
@@ -71,6 +71,10 @@ Change the speed and easing on `nav_component`'s transition; no new script
 version needed.
 
 ## Script lettering draw-on
+
+**Switched off for now:** `src/script-draw.js` is kept but not built into
+`dist/parkway.js`. To bring it back, add it to the footer bundle list in
+`scripts/build.js`.
 
 `src/script-draw.js`: each `.text-style-script` (or any element with `vci-draw`)
 writes itself on the first time it scrolls into view: letter by letter, left to
