@@ -1,4 +1,4 @@
-/*! The Parkway Church site code v0.8.0. Built from src/, do not edit. */
+/*! The Parkway Church site code v0.9.0. Built from src/, do not edit. */
 /* ---- src/buttons.js ---- */
 /* Arch button morph, and the nav pill shape that follows it.
  * Why custom code: the hover morph tweens an SVG path "d" attribute, which the style
@@ -135,7 +135,8 @@
      nav_component             position: absolute (its natural place, over the hero),
                                transition: transform
      nav_component.is-pinned   position: fixed
-   Reduced motion: the transition is switched off in the site head code.
+   Reduced motion: no slide; the header just appears pinned (handled here, as the style panel
+   can't do prefers-reduced-motion).
 
    This script only:
      - sets data-scroll-direction="up" | "down" on .nav_component (passive listener, moves under
@@ -153,6 +154,8 @@
 (function(){
   var nav=document.querySelector('.nav_component'); if(!nav) return;
   var PINNED='is-pinned', THRESHOLD=6;
+  // Reduced motion: the header still pins, but appears in place instead of sliding in.
+  var still=window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)');
   var last=Math.max(0,scrollY), travel=0, dir=null;
   var s=nav.style;
 
@@ -188,7 +191,7 @@
     var r=nav.getBoundingClientRect(), base=natural();
     // From where it is now (above or a few px below its pinned spot), but never from further
     // away than just above the screen.
-    var from=Math.round(Math.max(r.top-base, -(r.bottom-r.top)-base-8));
+    var from=still && still.matches ? 0 : Math.round(Math.max(r.top-base, -(r.bottom-r.top)-base-8));
     now(function(){
       nav.classList.add(PINNED); s.top='';
       s.transform=from?'translateY('+from+'px)':'';
@@ -232,6 +235,23 @@
   nav.addEventListener('focusin',function(){ if(scrollY>0) pin(); });
 })();
 
+/* ---- src/nav-toggle.js ---- */
+/* Hamburger open state. narthex adds .is-open to .nav_toggle while the menu is open; the style
+   panel can't style a child from its parent's class, so mirror it onto each .nav_toggle-line.
+   The X itself is native: nav_toggle-line.is-open with first-child / nth-child(even) / last-child
+   states in the style panel. */
+(function(){
+  Array.prototype.forEach.call(document.querySelectorAll('.nav_toggle'), function(t){
+    var lines=t.querySelectorAll('.nav_toggle-line');
+    function sync(){
+      var on=t.classList.contains('is-open');
+      for(var i=0;i<lines.length;i++) if(lines[i].classList.contains('is-open')!==on) lines[i].classList.toggle('is-open',on);
+    }
+    new MutationObserver(sync).observe(t,{attributes:true,attributeFilter:['class']});
+    sync();
+  });
+})();
+
 /* ---- src/nav-dropdown.js ---- */
 /*!
  * The Parkway Church — connected nav dropdowns
@@ -247,7 +267,9 @@
  *
  *   nav_dropdown-list.is-connected  card background / border / shadow removed
  *   nav_dropdown-list.is-leaving    list being left while Webflow's hover delay holds it open
- *   nav_dropdown-icon.is-open       chevron rotated
+ *   nav_dropdown-icon.is-open       chevron rotated (desktop: the active tab; mobile: open dropdowns)
+ *   nav_dropdown-list.is-open       collapsed (tablet/mobile) menu only: mirrors Webflow's w--open
+ *                                   so the expanded state is styled in the panel, not custom CSS
  *
  * Tuning lives in Webflow, as custom attributes on .nav_pill or any ancestor
  * of it (all optional). vci- prefix, same shape as narthex settings:
@@ -503,7 +525,11 @@
       lists.forEach(function (l, i) {
         setClass(l, 'is-connected', on);
         setClass(l, 'is-leaving', on && isOpen(l) && l !== active);
-        setClass(icons[i], 'is-open', on && l === active);
+        // Webflow marks an open dropdown with w--open, which the style panel can't target. In the
+        // collapsed menu mirror it as is-open (list and chevron) so the open state is styled
+        // natively; on the connected desktop panel the chevron follows the active tab.
+        setClass(l, 'is-open', !on && isOpen(l));
+        setClass(icons[i], 'is-open', on ? l === active : isOpen(l));
         l.style.pointerEvents = on && l !== active ? 'none' : '';
         hovers[i].engage(on);
         if (l !== active) hovers[i].clear();
@@ -576,7 +602,8 @@
       var open = lists.map(function (l) {
         return on && isOpen(l);
       });
-      var nextSig = on + ':' + open.join();
+      // Raw open states, so taps in the collapsed menu still reach apply() for the is-open mirror.
+      var nextSig = on + ':' + lists.map(isOpen).join();
       if (nextSig === sig) return; // our own class writes land here and stop
       var was = sig ? sig.split(':')[1].split(',') : [];
       sig = nextSig;
@@ -931,5 +958,107 @@ window.__scriptDrawPaths = {"Winter":{"width":0.0802,"paths":[{"d":"M.065-.190C.
       io.observe(host);
     });
   }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+})();
+
+/* ---- src/reveal.js ---- */
+/* Scroll entrance animations. Why custom code: Webflow interactions have to be added element by
+   element; this gives every core element one consistent entrance by default.
+
+   What animates by default (inside <main>): headings, paragraphs, blockquotes, images, video,
+   figures and buttons. Each fades in and rises 1rem into place, once, the first time it scrolls
+   into view. Elements that come into view together follow each other in reading order.
+   The motion (curve, distance, no replay) is the same everywhere; only timing can be tuned.
+
+   Tune it (on the element or any ancestor, so one attribute on a section covers all of it):
+     vci-reveal="false"     no entrance
+     vci-reveal             opt in any other element (a card, a list item...)
+     vci-reveal-delay       ms before it starts (default 0)
+     vci-reveal-duration    ms (default 600)
+   Or from a combo class in the style panel, with custom properties (inherited the same way):
+     --reveal-delay: 200    --reveal-duration: 900
+   An attribute wins over a custom property.
+
+   Safe by construction:
+     - nothing is hidden unless this script runs; reduced motion skips it entirely;
+     - what is already on screen at load is left alone (no flash on the hero);
+     - only opacity and the translate property animate: no layout shift, compositor-only;
+     - focus, find-in-page and printing reveal anything still waiting;
+     - skips the nav, menus, dialogs, elements with a Webflow interaction, script lettering
+       (it has its own write-on), and anything inside another revealing element. */
+(function () {
+  if (!window.IntersectionObserver || !Element.prototype.animate) return;
+  if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  var DEFAULTS = 'h1,h2,h3,h4,h5,h6,p,blockquote,img,picture,video,figure,.button,.w-button';
+  var SKIP = 'nav,header,[role="dialog"],.w-nav,.w-dropdown,.nav_component,.text-style-script,[data-w-id]';
+  var EASE = 'cubic-bezier(.2,.7,.2,1)', RISE = '0 1rem', STAGGER = 70, MAX_STAGGER = 5;
+  var DURATION = 600;
+
+  function off(el) {
+    var o = el.closest('[vci-reveal]');
+    return !!o && (o.getAttribute('vci-reveal') || '').toLowerCase() === 'false';
+  }
+  function num(el, name, fallback) {
+    var holder = el.closest('[vci-reveal-' + name + ']');
+    var v = holder ? parseFloat(holder.getAttribute('vci-reveal-' + name)) : NaN;
+    if (isNaN(v)) v = parseFloat(getComputedStyle(el).getPropertyValue('--reveal-' + name));
+    return isNaN(v) || v < 0 ? fallback : v;
+  }
+
+  function init() {
+    var root = document.querySelector('main') || document.querySelector('.main-wrapper') || document.body;
+    var found = root.querySelectorAll(DEFAULTS + ',[vci-reveal]:not([vci-reveal="false"])');
+    var targets = [], set = new Set();
+    for (var i = 0; i < found.length; i++) {
+      var el = found[i];
+      if (el.closest(SKIP) || off(el)) continue;
+      // One entrance per piece of content: not inside another element that is revealing.
+      var up = el.parentElement, nested = false;
+      for (; up && up !== root; up = up.parentElement) if (set.has(up)) { nested = true; break; }
+      if (nested) continue;
+      set.add(el); targets.push(el);
+    }
+
+    // Read every position first, then write: one layout pass.
+    var vh = innerHeight;
+    var waiting = targets.filter(function (el) {
+      var r = el.getBoundingClientRect();
+      return r.width && r.height && r.top >= vh; // already on screen (or not rendered): leave alone
+    });
+    if (!waiting.length) return;
+
+    var pending = new Set(waiting);
+    function reveal(el, extra) {
+      if (!pending.delete(el)) return;
+      io.unobserve(el);
+      el.animate([{ opacity: 0, translate: RISE }, { opacity: 1, translate: '0 0' }], {
+        duration: num(el, 'duration', DURATION),
+        delay: num(el, 'delay', 0) + (extra || 0),
+        easing: EASE,
+        fill: 'backwards'
+      });
+      el.style.opacity = ''; // the animation holds it hidden until it starts
+    }
+    function revealAll() { pending.forEach(function (el) { reveal(el); }); }
+
+    var io = new IntersectionObserver(function (entries) {
+      var batch = entries.filter(function (e) { return e.isIntersecting; }).map(function (e) { return e.target; });
+      // Reading order within a batch, so a row of cards or a heading + paragraph cascade.
+      batch.sort(function (a, b) { return a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1; });
+      batch.forEach(function (el, k) { reveal(el, Math.min(k, MAX_STAGGER) * STAGGER); });
+    }, { rootMargin: '0px 0px -8% 0px' });
+
+    waiting.forEach(function (el) {
+      el.style.opacity = '0';
+      io.observe(el);
+    });
+
+    document.addEventListener('focusin', function (e) {
+      pending.forEach(function (el) { if (el.contains(e.target)) reveal(el); });
+    });
+    addEventListener('beforeprint', revealAll);
+  }
+
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();

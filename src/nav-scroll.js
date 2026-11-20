@@ -8,7 +8,8 @@
      nav_component             position: absolute (its natural place, over the hero),
                                transition: transform
      nav_component.is-pinned   position: fixed
-   Reduced motion: the transition is switched off in the site head code.
+   Reduced motion: no slide; the header just appears pinned (handled here, as the style panel
+   can't do prefers-reduced-motion).
 
    This script only:
      - sets data-scroll-direction="up" | "down" on .nav_component (passive listener, moves under
@@ -26,6 +27,8 @@
 (function(){
   var nav=document.querySelector('.nav_component'); if(!nav) return;
   var PINNED='is-pinned', THRESHOLD=6;
+  // Reduced motion: the header still pins, but appears in place instead of sliding in.
+  var still=window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)');
   var last=Math.max(0,scrollY), travel=0, dir=null;
   var s=nav.style;
 
@@ -61,7 +64,7 @@
     var r=nav.getBoundingClientRect(), base=natural();
     // From where it is now (above or a few px below its pinned spot), but never from further
     // away than just above the screen.
-    var from=Math.round(Math.max(r.top-base, -(r.bottom-r.top)-base-8));
+    var from=still && still.matches ? 0 : Math.round(Math.max(r.top-base, -(r.bottom-r.top)-base-8));
     now(function(){
       nav.classList.add(PINNED); s.top='';
       s.transform=from?'translateY('+from+'px)':'';

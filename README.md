@@ -11,6 +11,8 @@ measurements and mobile menu) still comes from
 | --- | --- |
 | `src/buttons.js` | Arch button morph, and the nav pill shape that follows it. |
 | `src/nav-scroll.js` | Header slides away on scroll down and back on scroll up. Closes an open dropdown after 8px of scrolling down. |
+| `src/nav-toggle.js` | Mirrors the hamburger's `is-open` onto its lines, so the X is styled in the panel. |
+| `src/reveal.js` | Default scroll entrance for headings, text, images and buttons. |
 | `src/nav-dropdown.js` | Connected nav dropdowns (see below). |
 | `src/script-draw.js` | Trim-path write-on for `.text-style-script` lettering. |
 | `src/script-draw-paths.js` | **Generated** pen lines per word, from `scripts/trim-paths/`. |
@@ -27,13 +29,13 @@ Source is ES5-compatible browser JS, because nothing transpiles it.
 Head code:
 
 ```html
-<script src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.8.0/dist/parkway-head.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.9.0/dist/parkway-head.min.js"></script>
 ```
 
 Footer code, alongside the narthex nav tag:
 
 ```html
-<script defer src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.8.0/dist/parkway.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.9.0/dist/parkway.min.js"></script>
 ```
 
 jsDelivr minifies on request when the URL ends in `.min.js`, and only serves
@@ -99,6 +101,47 @@ Filled (Primary) buttons get `button_shape.is-fill`, which carries the drop
 shadow in the style panel. `buttons.js` also adds a `button_shine` path that
 copies the button outline with a light-to-shade gradient. The gradient lives in
 `shineFor()` in `src/buttons.js` because it has to follow the arch morph.
+
+## Scroll entrances
+
+`src/reveal.js` gives core content one consistent entrance. Headings,
+paragraphs, blockquotes, images, video, figures and buttons inside `<main>` fade
+in and rise 1rem, once, the first time they scroll into view. Elements that
+arrive together cascade in reading order (70ms apart). The curve, distance and
+no-replay are fixed site-wide; timing can be tuned:
+
+| how | example | effect |
+| --- | --- | --- |
+| attribute on the element or any ancestor | `vci-reveal="false"` | no entrance (one on a section turns off all of it) |
+| | `vci-reveal` | opt in an element that isn't a default target (a card, a list item) |
+| | `vci-reveal-delay="200"` | ms before it starts |
+| | `vci-reveal-duration="900"` | ms (default 600) |
+| custom property on a class or combo class (style panel, Custom properties) | `--reveal-delay: 200`, `--reveal-duration: 900` | same, inherited by everything inside; an attribute wins over it |
+
+Safe by construction: nothing is hidden unless the script runs; anything on
+screen at load is left alone; only `opacity` and `translate` animate, so there
+is no layout shift. Reduced motion skips it. Focus, find-in-page and print
+reveal anything still waiting. It skips the nav, menus, dialogs, elements with a
+Webflow interaction, script lettering, and anything inside another revealing
+element.
+
+## Custom code policy (as built)
+
+All CSS lives in the Webflow style panel. The site head code holds only a
+credit comment. Where Webflow's own state classes can't be targeted in the
+panel, a script mirrors them onto classes that can be:
+
+| state | mirrored by | styled in the panel as |
+| --- | --- | --- |
+| mobile menu open (`nav_toggle.is-open`, from narthex) | `nav-toggle.js` | `nav_toggle-line.is-open` with first-child / nth-child(even) / last-child |
+| dropdown open in the collapsed menu (`w--open`) | `nav-dropdown.js` | `nav_dropdown-list.is-open` (tablet and below), `nav_dropdown-icon.is-open` |
+
+Scripts only set inline styles for things that are measured or animated
+(dropdown panel shape, highlight position, header pin/release, write-on,
+reveals).
+
+See `docs/roadmap.md` for accessibility and AI-discoverability work to pick up
+later.
 
 ## Calendar events sync
 

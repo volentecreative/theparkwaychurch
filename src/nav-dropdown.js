@@ -12,7 +12,9 @@
  *
  *   nav_dropdown-list.is-connected  card background / border / shadow removed
  *   nav_dropdown-list.is-leaving    list being left while Webflow's hover delay holds it open
- *   nav_dropdown-icon.is-open       chevron rotated
+ *   nav_dropdown-icon.is-open       chevron rotated (desktop: the active tab; mobile: open dropdowns)
+ *   nav_dropdown-list.is-open       collapsed (tablet/mobile) menu only: mirrors Webflow's w--open
+ *                                   so the expanded state is styled in the panel, not custom CSS
  *
  * Tuning lives in Webflow, as custom attributes on .nav_pill or any ancestor
  * of it (all optional). vci- prefix, same shape as narthex settings:
@@ -268,7 +270,11 @@
       lists.forEach(function (l, i) {
         setClass(l, 'is-connected', on);
         setClass(l, 'is-leaving', on && isOpen(l) && l !== active);
-        setClass(icons[i], 'is-open', on && l === active);
+        // Webflow marks an open dropdown with w--open, which the style panel can't target. In the
+        // collapsed menu mirror it as is-open (list and chevron) so the open state is styled
+        // natively; on the connected desktop panel the chevron follows the active tab.
+        setClass(l, 'is-open', !on && isOpen(l));
+        setClass(icons[i], 'is-open', on ? l === active : isOpen(l));
         l.style.pointerEvents = on && l !== active ? 'none' : '';
         hovers[i].engage(on);
         if (l !== active) hovers[i].clear();
@@ -341,7 +347,8 @@
       var open = lists.map(function (l) {
         return on && isOpen(l);
       });
-      var nextSig = on + ':' + open.join();
+      // Raw open states, so taps in the collapsed menu still reach apply() for the is-open mirror.
+      var nextSig = on + ':' + lists.map(isOpen).join();
       if (nextSig === sig) return; // our own class writes land here and stop
       var was = sig ? sig.split(':')[1].split(',') : [];
       sig = nextSig;
