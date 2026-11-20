@@ -13,6 +13,7 @@ measurements and mobile menu) still comes from
 | `src/nav-scroll.js` | Header slides away on scroll down and back on scroll up. Closes an open dropdown after 8px of scrolling down. |
 | `src/nav-dropdown.js` | Connected nav dropdowns (see below). |
 | `src/image-sizes-fix.js` | Sets each image's `sizes` to its rendered width. Same fix as The North Church. |
+| `scripts/sync-events.js` | Google Calendar → Webflow CMS Events sync. Run hourly by `.github/workflows/sync-events.yml`. |
 | `scripts/build.js` | Concatenates `src/` into `dist/`. No transpile, no minify. |
 | `dist/parkway.js` | **Committed.** Footer bundle: buttons, nav-scroll, nav-dropdown, in that order. |
 | `dist/parkway-head.js` | **Committed.** Head bundle: image-sizes-fix. |
@@ -53,6 +54,37 @@ motion is all in the Webflow style panel:
 | `nav_component` + combo `is-hidden` | `transform: translate(0, calc(-100% - 2rem))` |
 
 Change the speed, easing or distance there; no new script version needed.
+
+## Calendar events sync
+
+The homepage "Upcoming events" list is a Collection List of the Webflow
+**Events** collection. A GitHub Action (`.github/workflows/sync-events.yml`)
+runs `scripts/sync-events.js` every hour: it reads the church's public Google
+Calendar and makes the collection match the upcoming events. New events are
+created, edited ones updated, and past, cancelled or deleted ones removed.
+Changes are published straight away. Edit events in Google Calendar, never in
+the CMS: the next run overwrites CMS edits.
+
+Setup (repository → Settings → Secrets and variables → Actions):
+
+| name | kind | value |
+| --- | --- | --- |
+| `GOOGLE_API_KEY` | secret | Google Cloud API key with the Google Calendar API enabled |
+| `WEBFLOW_TOKEN` | secret | Webflow site API token with CMS read and write |
+| `GOOGLE_CALENDAR_ID` | variable | e.g. `abc123@group.calendar.google.com`. The calendar must be public. |
+| `WEBFLOW_COLLECTION_ID` | variable | `6b005da0bd484318dd94b6dd` (Events) |
+| `EVENTS_DAYS_AHEAD` | variable, optional | how far ahead to sync; default `120` |
+| `EVENTS_SKIP` | variable, optional | regex; events whose title matches are left out, e.g. `^Sunday Worship` |
+
+GitHub only runs scheduled workflows from the default branch, so the hourly
+run starts once this is merged to `main`. Run it by hand from the Actions tab
+("Sync calendar events" → Run workflow); tick "dry run" to see what would
+change without writing.
+
+Fields the sync writes: Name, Slug, Start, End, All day, Time (`6:30–8pm`,
+`All day`, `Through Tue, Dec 8`), Location, Details (Time · Location),
+Description (plain text), Calendar link, Google event ID (the match key). All-day
+events are stored at noon Central so the date never shifts a day.
 
 ## Connected nav dropdowns
 

@@ -1,0 +1,40 @@
+name: Sync calendar events
+
+# Copies upcoming events from the church's Google Calendar into the Webflow
+# "Events" collection. See scripts/sync-events.js and the README.
+on:
+  schedule:
+    - cron: '17 * * * *' # hourly; GitHub only runs schedules on the default branch
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Log what would change without writing to Webflow
+        type: boolean
+        default: false
+
+concurrency:
+  group: sync-events
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: node scripts/sync-events.js
+        env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          WEBFLOW_TOKEN: ${{ secrets.WEBFLOW_TOKEN }}
+          GOOGLE_CALENDAR_ID: ${{ vars.GOOGLE_CALENDAR_ID }}
+          WEBFLOW_COLLECTION_ID: ${{ vars.WEBFLOW_COLLECTION_ID }}
+          EVENTS_DAYS_AHEAD: ${{ vars.EVENTS_DAYS_AHEAD }}
+          EVENTS_SKIP: ${{ vars.EVENTS_SKIP }}
+          EVENTS_TIMEZONE: ${{ vars.EVENTS_TIMEZONE }}
+          DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
