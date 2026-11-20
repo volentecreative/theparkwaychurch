@@ -1,4 +1,4 @@
-/*! The Parkway Church site code v0.5.1. Built from src/, do not edit. */
+/*! The Parkway Church site code v0.6.0. Built from src/, do not edit. */
 /* ---- src/buttons.js ---- */
 /* Arch button morph, and the nav pill shape that follows it.
  * Why custom code: the hover morph tweens an SVG path "d" attribute, which the style
@@ -125,30 +125,36 @@
 })();
 
 /* ---- src/nav-scroll.js ---- */
-/* Scroll-linked header: a class switcher. Why custom code: bringing the header back when the
-   visitor scrolls up needs the scroll direction, which CSS and Webflow interactions can't read.
+/* Direction-aware header. Why custom code: CSS can't read the scroll direction.
 
-   All the look and motion is in the Webflow style panel:
-     nav_component                       position: absolute (sits at the top of the page and
-                                         scrolls away with it), transition: transform
-     nav_component.is-pinned             position: fixed
-     nav_component.is-pinned.is-hidden   (is-hidden) transform that moves it above the screen
-   This only switches those classes:
-     top of the page        no classes: the header is part of the page and scrolls away naturally
-     scrolling up           is-pinned: fixed, sliding in from above
-     scrolling down again   is-pinned is-hidden: slides back out
-     back at the very top   no classes again (fixed at the top and absolute at the top are the
-                            same spot, so the swap is invisible)
-   If this file doesn't load, the header simply scrolls away with the page.
+   Scrolling down, the header belongs to the document and scrolls away with it. Scrolling up,
+   it is fetched from above the screen and stays fixed at the top. Scrolling down again, it is
+   released back into the document right where it is and scrolls away naturally.
 
-   Also closes an open nav dropdown when the header hides, so a menu never hangs off screen.
-   A dropdown holding keyboard focus stays open, and focus inside the header shows it again. */
+   CSS (Webflow style panel) does all the positioning and motion:
+     nav_component             position: absolute (its natural place, over the hero),
+                               transition: transform
+     nav_component.is-pinned   position: fixed
+   Reduced motion: the transition is switched off in the site head code.
+
+   This script only:
+     - sets data-scroll-direction="up" | "down" on .nav_component (passive listener, moves under
+       THRESHOLD px ignored), and on each change of direction
+     - up:   adds is-pinned, starting from where the header is on screen right now (just above
+             the top if it has scrolled away), so CSS slides it down from there
+     - down: removes is-pinned and sets an inline top = where it currently is in the page, so it
+             carries on scrolling away with the content with no jump
+     - at scrollY 0 clears all of that, so the header is exactly as it was on load.
+   One position read and one style write per change of direction; nothing runs while scrolling
+   in the same direction. If this file doesn't load, the header just scrolls away with the page.
+
+   Also closes an open nav dropdown when scrolling down, so a menu isn't carried off screen.
+   A dropdown holding keyboard focus stays open, and focus inside the header pins it. */
 (function(){
   var nav=document.querySelector('.nav_component'); if(!nav) return;
-  var PINNED='is-pinned', HIDDEN='is-hidden';
-  var TOLERANCE=6; // px of travel in one direction before the header reacts (ignores jitter)
-  var last=Math.max(0,scrollY), travel=0;
-  var has=function(c){ return nav.classList.contains(c); };
+  var PINNED='is-pinned', THRESHOLD=6;
+  var last=Math.max(0,scrollY), travel=0, dir=null;
+  var s=nav.style;
 
   // Close through Webflow's own dropdown handler, so its fade, classes and aria all reset.
   function closeDropdowns(){
@@ -161,38 +167,69 @@
     }
   }
 
-  // Bring it in: pin it hidden with the transition off (so it doesn't animate from where it
-  // sat in the page), then let it slide down.
-  function show(){
-    if(!has(PINNED)){
-      nav.style.transition='none';
-      nav.classList.add(PINNED,HIDDEN);
-      void nav.offsetHeight;
-      nav.style.transition='';
-      requestAnimationFrame(function(){ nav.classList.remove(HIDDEN); });
-    } else nav.classList.remove(HIDDEN);
+  // The header's natural top (from the stylesheet), and the page y that position: absolute
+  // measures from (the nearest positioned ancestor, else the page).
+  function natural(){
+    var t=s.top; s.top='';
+    var top=parseFloat(getComputedStyle(nav).top)||0;
+    s.top=t;
+    return top;
   }
-  function hide(){
-    if(!has(PINNED) || has(HIDDEN) || nav.contains(document.activeElement)) return;
-    nav.classList.add(HIDDEN);
+  function origin(){
+    for(var el=nav.parentElement; el && el!==document.body; el=el.parentElement)
+      if(getComputedStyle(el).position!=='static') return el.getBoundingClientRect().top+scrollY+el.clientTop;
+    return 0;
+  }
+  // Apply a positioning change with the transition off, so only the slide is ever animated.
+  function now(fn){ s.transition='none'; fn(); void nav.offsetHeight; s.transition=''; }
+
+  function pin(){
+    if(nav.classList.contains(PINNED)) return;
+    var r=nav.getBoundingClientRect(), base=natural();
+    // From where it is now (above or a few px below its pinned spot), but never from further
+    // away than just above the screen.
+    var from=Math.round(Math.max(r.top-base, -(r.bottom-r.top)-base-8));
+    now(function(){
+      nav.classList.add(PINNED); s.top='';
+      s.transform=from?'translateY('+from+'px)':'';
+    });
+    s.transform=''; // CSS transitions it to its resting place
+  }
+
+  function release(){
     closeDropdowns();
+    if(!nav.classList.contains(PINNED)) return;
+    var y=nav.getBoundingClientRect().top+scrollY; // includes any slide still in progress
+    now(function(){
+      nav.classList.remove(PINNED);
+      s.transform='';
+      s.top=(y-origin())+'px';
+    });
   }
-  function unpin(){ nav.classList.remove(PINNED,HIDDEN); }
+
+  function reset(){
+    dir=null; travel=0;
+    nav.removeAttribute('data-scroll-direction');
+    if(!nav.classList.contains(PINNED) && !s.top) return;
+    now(function(){ nav.classList.remove(PINNED); s.top=''; s.transform=''; });
+  }
 
   function onScroll(){
     // Clamp: iOS rubber-banding past either end reports scroll that isn't real.
     var end=document.documentElement.scrollHeight-innerHeight;
     var y=Math.min(Math.max(0,scrollY),end), d=y-last; last=y;
-    if(y<=0) return unpin();
+    if(y<=0) return reset();
     if(!d) return;
     travel=(d>0)===(travel>0)?travel+d:d; // restarts when the direction flips
-    if(travel>TOLERANCE) hide();
-    // Scrolling up: only worth pinning once the in-page header is out of view.
-    else if(travel<-TOLERANCE && (has(PINNED) || y>nav.offsetTop+nav.offsetHeight)) show();
+    var next=travel>THRESHOLD?'down':travel<-THRESHOLD?'up':dir;
+    if(next===dir) return;
+    dir=next;
+    nav.setAttribute('data-scroll-direction',dir);
+    if(dir==='up') pin(); else release();
   }
 
   addEventListener('scroll',onScroll,{passive:true});
-  nav.addEventListener('focusin',function(){ if(has(PINNED)) nav.classList.remove(HIDDEN); });
+  nav.addEventListener('focusin',function(){ if(scrollY>0) pin(); });
 })();
 
 /* ---- src/nav-dropdown.js ---- */

@@ -26,13 +26,13 @@ Source is ES5-compatible browser JS, because nothing transpiles it.
 Head code:
 
 ```html
-<script src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.5.1/dist/parkway-head.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.6.0/dist/parkway-head.min.js"></script>
 ```
 
 Footer code, alongside the narthex nav tag:
 
 ```html
-<script defer src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.5.1/dist/parkway.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.6.0/dist/parkway.min.js"></script>
 ```
 
 jsDelivr minifies on request when the URL ends in `.min.js`, and only serves
@@ -45,17 +45,30 @@ Edit `src/` → `npm run build` → `npm run check` → commit (including `dist/
 
 ## Scroll-linked header
 
-`src/nav-scroll.js` only switches classes on `.nav_component`; the motion is all
-in the Webflow style panel:
+A direction-aware header. Scrolling down, it belongs to the document and
+scrolls away with it. Scrolling up, it slides in from above and stays fixed at
+the top. Scrolling down again, it is released back into the document right
+where it is and scrolls away naturally. At the top of the page it is exactly as
+on load.
 
-| state | classes | what is set |
+CSS does the positioning and motion:
+
+| class | where | what is set |
 | --- | --- | --- |
-| top of the page | none | `position: absolute`, `transition: transform 300ms`. It scrolls away with the page. |
-| scrolling up, mid-page | `is-pinned` | `position: fixed`; slides in from above |
-| scrolling down, mid-page | `is-pinned is-hidden` | `transform: translate(0, calc(-100% - 2rem))`; slides out |
-| back at the very top | none | |
+| `nav_component` | style panel | `position: absolute`, `transition: transform 300ms` |
+| `nav_component` + combo `is-pinned` | style panel | `position: fixed` |
+| reduced motion | site head code | `@media (prefers-reduced-motion: reduce) { .nav_component { transition: none } }` |
 
-Change the speed, easing or distance there; no new script version needed.
+`src/nav-scroll.js` sets `data-scroll-direction="up" | "down"` on
+`.nav_component` (moves under 6px are ignored), and acts only when the direction
+changes. On **up** it adds `is-pinned`, with a one-off inline `transform` so the
+slide starts from where the header is on screen; CSS animates it to rest. On
+**down** it removes `is-pinned` and sets an inline `top` at the header's current
+place in the page. At `scrollY = 0` it clears both. Nothing runs while scrolling
+in the same direction.
+
+Change the speed and easing on `nav_component`'s transition; no new script
+version needed.
 
 ## Script lettering draw-on
 
