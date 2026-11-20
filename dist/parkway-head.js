@@ -1,4 +1,4 @@
-/*! The Parkway Church site code v0.9.1. Built from src/, do not edit. */
+/*! The Parkway Church site code v0.9.2. Built from src/, do not edit. */
 /* ---- src/image-sizes-fix.js ---- */
 /* Image sizes fix (same as The North Church). Sets each img sizes to its rendered width so the browser
    downloads the smallest srcset file that fits, cutting mobile bandwidth. Needs JS: runs before images load. */

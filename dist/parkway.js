@@ -1,4 +1,4 @@
-/*! The Parkway Church site code v0.9.1. Built from src/, do not edit. */
+/*! The Parkway Church site code v0.9.2. Built from src/, do not edit. */
 /* ---- src/buttons.js ---- */
 /* Arch button morph, and the nav pill shape that follows it.
  * Why custom code: the hover morph tweens an SVG path "d" attribute, which the style
@@ -332,10 +332,16 @@
     var icons = lists.map(function (l) {
       return l.parentElement.querySelector('.nav_dropdown-icon');
     });
-    // Each list's own top padding, before the bridge (see measure) is added to it.
-    var ownPad = lists.map(function (l) {
-      return parseFloat(getComputedStyle(l).paddingTop) || 0;
-    });
+    // Each list's own top padding from the style panel, before the bridge (see measure) is added
+    // to it. Read fresh every time, so a padding set on the is-connected combo takes effect (the
+    // floating no-JS card keeps the base class padding).
+    function ownPad(l) {
+      var inline = l.style.paddingTop;
+      l.style.paddingTop = '';
+      var pad = parseFloat(getComputedStyle(l).paddingTop) || 0;
+      l.style.paddingTop = inline;
+      return pad;
+    }
     var reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
 
     var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
@@ -640,7 +646,7 @@
         // starts. Top corners are squared so they are not dead spots either.
         var dd = l.parentElement.getBoundingClientRect();
         l.style.top = dd.height + 'px';
-        l.style.paddingTop = ownPad[i] + Math.max(0, p.bottom - dd.bottom) + 'px';
+        l.style.paddingTop = ownPad(l) + Math.max(0, p.bottom - dd.bottom) + 'px';
         l.style.borderTopLeftRadius = l.style.borderTopRightRadius = '0';
       });
       if (active) {
