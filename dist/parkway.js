@@ -1,4 +1,4 @@
-/*! The Parkway Church site code v0.5.0. Built from src/, do not edit. */
+/*! The Parkway Church site code v0.5.1. Built from src/, do not edit. */
 /* ---- src/buttons.js ---- */
 /* Arch button morph, and the nav pill shape that follows it.
  * Why custom code: the hover morph tweens an SVG path "d" attribute, which the style
@@ -761,7 +761,9 @@
    SVG with an animated stroke dash, which the style panel cannot do.
 
    Every .text-style-script (or any element with vci-draw) writes itself on the first time it
-   scrolls into view: the letter outlines are stroked in left to right, then the letters fill.
+   scrolls into view: letter by letter, left to right, each outline is traced and then filled.
+   Each letter is its own <tspan> inside one <text>, so the font still joins and shapes the word
+   exactly as the real text does. Nothing is clipped, so swashes are never cut off.
    The real text stays in the page throughout (hidden only while the drawing plays) and is put
    back exactly as it was afterwards, so it is still editable, selectable and read by screen
    readers. Lettering that wraps onto more than one line, or contains other elements, is left as
@@ -814,30 +816,43 @@
     var text = document.createElementNS(NS, 'text');
     text.setAttribute('x', line.left - box.left);
     text.setAttribute('y', base);
-    text.textContent = el.textContent.trim();
     var L = size * 12; // longer than any one letter's outline
-    text.style.cssText = 'font:inherit;letter-spacing:inherit;fill:currentColor;fill-opacity:0;stroke:currentColor;' +
+    text.style.cssText = 'font:inherit;letter-spacing:inherit;white-space:pre;fill:currentColor;stroke:currentColor;' +
       'stroke-width:' + (size * setting(el, 'stroke', 0.018)) + 'px;stroke-linejoin:round;stroke-linecap:round;' +
-      'stroke-dasharray:' + L + ';stroke-dashoffset:' + L;
+      'stroke-dasharray:' + L;
+    var glyphs = Array.from ? Array.from(el.textContent.trim()) : el.textContent.trim().split('');
+    var spans = glyphs.map(function (ch) {
+      var s = document.createElementNS(NS, 'tspan');
+      s.textContent = ch;
+      s.style.cssText = 'fill-opacity:0;stroke-dashoffset:' + L;
+      text.appendChild(s);
+      return s;
+    });
     svg.appendChild(text);
 
     var pos = el.style.position;
     if (cs.position === 'static') el.style.position = 'relative';
     el.appendChild(svg);
 
+    // Letter by letter, left to right: each outline traces, then that letter's ink fills while
+    // the next ones are still being drawn. The whole word takes `dur`.
     var dur = setting(el, 'duration', 2200);
-    var ease = 'cubic-bezier(.45,.05,.35,1)';
-    // Outlines trace in, a left-to-right wipe gives them a writing direction, then the ink fills.
-    text.animate([{ strokeDashoffset: L }, { strokeDashoffset: 0 }], { duration: dur * 0.85, easing: ease, fill: 'forwards' });
-    svg.animate([{ clipPath: 'inset(-50% 100% -50% -10%)' }, { clipPath: 'inset(-50% -10% -50% -10%)' }],
-      { duration: dur * 0.75, easing: 'cubic-bezier(.3,0,.4,1)', fill: 'forwards' });
-    text.animate([{ fillOpacity: 0 }, { fillOpacity: 1 }],
-      { delay: dur * 0.5, duration: dur * 0.5, easing: 'ease-out', fill: 'forwards' })
-      .finished.then(function () {
-        el.style.color = '';
-        el.style.position = pos;
-        if (svg.parentNode) svg.parentNode.removeChild(svg);
-      });
+    var n = spans.length;
+    var each = dur * (n > 1 ? 0.5 : 1); // one letter's trace + fill
+    var gap = n > 1 ? (dur - each) / (n - 1) : 0;
+    var last;
+    spans.forEach(function (s, i) {
+      var at = i * gap;
+      s.animate([{ strokeDashoffset: L }, { strokeDashoffset: 0 }],
+        { delay: at, duration: each * 0.75, easing: 'cubic-bezier(.45,.05,.35,1)', fill: 'forwards' });
+      last = s.animate([{ fillOpacity: 0 }, { fillOpacity: 1 }],
+        { delay: at + each * 0.45, duration: each * 0.55, easing: 'ease-out', fill: 'forwards' });
+    });
+    last.finished.then(function () {
+      el.style.color = '';
+      el.style.position = pos;
+      if (svg.parentNode) svg.parentNode.removeChild(svg);
+    });
   }
 
   function init() {

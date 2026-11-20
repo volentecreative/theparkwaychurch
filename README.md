@@ -26,13 +26,13 @@ Source is ES5-compatible browser JS, because nothing transpiles it.
 Head code:
 
 ```html
-<script src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.5.0/dist/parkway-head.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.5.1/dist/parkway-head.min.js"></script>
 ```
 
 Footer code, alongside the narthex nav tag:
 
 ```html
-<script defer src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.5.0/dist/parkway.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.5.1/dist/parkway.min.js"></script>
 ```
 
 jsDelivr minifies on request when the URL ends in `.min.js`, and only serves
@@ -60,8 +60,9 @@ Change the speed, easing or distance there; no new script version needed.
 ## Script lettering draw-on
 
 `src/script-draw.js`: each `.text-style-script` (or any element with `vci-draw`)
-writes itself on the first time it scrolls into view. The letter outlines are
-traced left to right, then the letters fill. The real text is only hidden while
+writes itself on the first time it scrolls into view: letter by letter, left to
+right, each outline is traced and then filled. Nothing is clipped, so swashes
+are never cut off. The real text is only hidden while
 it plays and is restored afterwards. Skipped for reduced motion, wrapped
 lettering, and lettering that contains other elements.
 
