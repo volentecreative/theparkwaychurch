@@ -1,4 +1,4 @@
-/*! The Parkway Church site code v0.9.3. Built from src/, do not edit. */
+/*! The Parkway Church site code v0.9.4. Built from src/, do not edit. */
 /* ---- src/buttons.js ---- */
 /* Arch button morph, and the nav pill shape that follows it.
  * Why custom code: the hover morph tweens an SVG path "d" attribute, which the style
@@ -327,6 +327,12 @@
   var SAFE_REST = 120; // ms resting on a tab inside the safe triangle before it switches anyway
   var SAFE_SLOPE = 0.35; // how steeply down (dy/dx) the pointer must be moving to count as aiming at the panel
   var SAFE_PAD = 12; // px the safe triangle's base overhangs the panel on each side
+  var CLOSE_MS = 260; // ms for the panel to retract into the pill on close
+  var CLOSE_FADE = 140; // ms for the links to fade out as it retracts
+  // Close curve: eases in and out, so the panel neither snaps up nor leaves a thin sliver hanging.
+  function closeEase(p) {
+    return p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+  }
 
   // The pill's SVG is sized and drawn by buttons.js, which may not have run yet.
   function shapeOf(pill) {
@@ -388,6 +394,9 @@
     var active = null; // list the panel belongs to
     var prev = null; // list being left during a switch
     var switching = false; // true while the panel is still travelling to a new tab
+    var closing = null; // list kept on screen, fading, while the panel retracts after a close
+    var closeT0 = 0; // when the current close started (0 = not closing)
+    var closeFrom = 0; // panel height when it started
     var sig = '';
     var radius = 20;
     var running = []; // link animations in flight
@@ -541,6 +550,12 @@
       if (prev && prev !== next) release(prev);
       prev = dir ? active : null;
       switching = !!dir;
+      // A close interrupted by a new open: the panel grows again from wherever it got to.
+      if (closing) {
+        if (closing !== next) release(closing);
+        closing = null;
+      }
+      closeT0 = 0;
 
       if (booting) {
         // Already open when the script arrived (slow connection): take it over as it stands.
@@ -555,6 +570,15 @@
         animate(prev, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateX(' + -t + 'px)' }], { duration: CROSSFADE, easing: 'linear', fill: 'forwards' });
         animate(next, [{ opacity: 0 }, { opacity: 1 }], { duration: CROSSFADE, easing: 'linear', fill: 'backwards' });
         animate(next, [{ transform: 'translateX(' + t + 'px)' }, { transform: 'none' }], { duration: Math.max(CROSSFADE, DRIFT_MS), easing: EASE, fill: 'backwards' });
+      } else if (active && !next && cur.h >= 0.5 && !reduce.matches) {
+        // Close: keep the links on screen (Webflow has already hidden the list) and fade them
+        // while the panel retracts over them, so the panel never empties out before it moves.
+        closing = active;
+        closing.style.display = 'block'; // now, not next frame, or the links blink out for a frame
+        closing.style.visibility = '';
+        closeFrom = cur.h;
+        closeT0 = performance.now();
+        animate(closing, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateY(-4px)' }], { duration: CLOSE_FADE, easing: 'linear', fill: 'forwards' });
       }
       active = next;
     }
@@ -708,11 +732,11 @@
       var sL = p.left + cur.x0;
       var sR = p.left + cur.x1;
       var sB = p.bottom + cur.h;
-      var rad = Math.min(radius, cur.h / 2).toFixed(1);
+      var rad = corner().toFixed(1);
       if (!moving) switching = false;
       // Read every rect first, then write, so a frame costs one layout at most.
       var jobs = lists.map(function (l) {
-        var leaving = l === prev && switching;
+        var leaving = (l === prev && switching) || l === closing;
         if (!isOpen(l) && !leaving) return 'release';
         if (l === active && !moving) return 'settle';
         if (l !== active && !leaving) return 'hide';
@@ -743,6 +767,15 @@
       });
     }
 
+    // Corner radius for this frame, shared by the panel and its clip. On close the corners (the
+    // concave flares into the pill included) hold until the panel is half retracted, then shrink in
+    // step with it, so they reach zero together instead of a thin full-width strip lingering.
+    function corner() {
+      var r = Math.min(radius, cur.h / 2);
+      if (closeT0 && closeFrom > 0) r = Math.min(r, radius * Math.min(1, cur.h / (closeFrom / 2)));
+      return r;
+    }
+
     function draw(moving) {
       if (!svg.isConnected) svg = shapeOf(pill) || svg; // the pill SVG was replaced
       if (path.parentNode !== svg) svg.appendChild(path);
@@ -755,7 +788,7 @@
       var vb = svg.viewBox.baseVal;
       var k = vb.height / svg.getBoundingClientRect().height;
       var y0 = vb.height - 0.6;
-      var r = Math.min(radius, cur.h / 2) * k;
+      var r = corner() * k;
       var x0 = cur.x0 * k;
       var x1 = cur.x1 * k;
       var y1 = y0 + cur.h * k;
@@ -780,6 +813,27 @@
       var a = reduce.matches ? 1 : 1 - Math.exp(-((now - last) / 1000) / (SLIDE / 4));
       last = now;
       var moving = false;
+      if (closeT0 && tgt.h === 0) {
+        // Closing: a timed tween rather than the exponential settle, which front-loads the motion.
+        var p = Math.min(1, (now - closeT0) / CLOSE_MS);
+        cur.h = closeFrom * (1 - closeEase(p));
+        if (p < 1) {
+          draw(true);
+          raf = requestAnimationFrame(tick);
+          return;
+        }
+        cur.h = 0;
+        closeT0 = 0;
+        if (closing) release(closing);
+        closing = null;
+        running.forEach(function (a) {
+          a.cancel();
+        });
+        running = [];
+        draw(false);
+        raf = 0;
+        return;
+      }
       ['x0', 'x1', 'h'].forEach(function (key) {
         var d = tgt[key] - cur[key];
         if (Math.abs(d) > 0.3) {

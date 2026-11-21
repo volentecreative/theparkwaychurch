@@ -229,7 +229,7 @@ version needed.
 
 Slower-changing timings are constants at the top of `src/nav-dropdown.js`:
 `SLIDE` (panel), `OPEN_IN`, `DRIFT_MS`, `HOVER_MS`, `SAFE_REST`, `SAFE_SLOPE`,
-`SAFE_PAD`.
+`SAFE_PAD`, `CLOSE_MS` (panel retract on close), `CLOSE_FADE` (links fading out as it retracts).
 
 ### What the script sets inline
 
