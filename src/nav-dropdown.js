@@ -3,7 +3,8 @@
  *
  * Draws the open dropdown as part of the nav pill (one shape, concave corners
  * where it meets the pill), slides it between dropdowns, crossfades the links,
- * glides one hover highlight between links and rotates the open chevron.
+ * glides one hover highlight between links, glides another between the top-level
+ * tabs, and rotates the open chevron.
  *
  * Progressive enhancement: this file only ever ADDS to the stock Webflow
  * dropdown. If it fails to load, or bails out below, the dropdowns keep their
@@ -24,6 +25,10 @@
  *   vci-dropdown-flip           true = new links enter from the other side (false)
  *   vci-dropdown-safe-triangle  false = switch tabs the instant they are touched (true)
  *   vci-dropdown-pass-through   ms a tab must be hovered before it takes over, 0 = off (0)
+ *
+ * Optional styling hooks (made by the script with the brand tint if absent):
+ *   .nav_dropdown-highlight  inside each list: the gliding link highlight
+ *   .nav_links-highlight     inside .nav_links: the gliding tab highlight
  *
  * Expects (drawn by buttons.js): .nav_pill > svg.nav_pill-shape > path.nav_pill-fill
  */
@@ -104,6 +109,7 @@
     var radius = 20;
     var running = []; // link animations in flight
     var hovers = []; // one gliding highlight per list
+    var tabs = { update: function () {} }; // gliding highlight behind the top-level tabs
     var hovered = null; // list whose dropdown the pointer is on
     var pending = null; // list waiting to take over (safe triangle / pass-through)
     var pendingWhy = '';
@@ -222,6 +228,82 @@
       };
     }
 
+    // ---- tab highlight -----------------------------------------------------
+    // The same gliding tint as the links, behind the top-level tabs. It follows the pointer
+    // between tabs, rests on the open tab while its panel is in use, and fades out otherwise.
+    // Its height matches the pill's inner height (pill minus its vertical padding), so it
+    // lines up with the header button.
+    function tabHover() {
+      var bar = pill.querySelector('.nav_links');
+      if (!bar || !hasPointer) return { update: function () {} };
+      var hl = bar.querySelector('.nav_links-highlight');
+      var own = !hl;
+      if (own) {
+        hl = document.createElement('div');
+        hl.className = 'nav_links-highlight';
+        hl.style.backgroundColor = HOVER_TINT;
+        bar.insertBefore(hl, bar.firstChild);
+      }
+      hl.setAttribute('aria-hidden', 'true');
+      hl.style.cssText += ';position:absolute;top:0;left:0;z-index:-1;pointer-events:none;opacity:0;';
+      var lit = null;
+      var over = null; // tab element the pointer or focus is on
+
+      function tabOf(el) {
+        return el && (el.querySelector('.nav_dropdown-toggle') || el);
+      }
+      function place(tab, glide) {
+        var b = bar.getBoundingClientRect();
+        var t = tab.getBoundingClientRect();
+        var ps = getComputedStyle(pill);
+        var inner = pill.getBoundingClientRect().height - (parseFloat(ps.paddingTop) || 0) - (parseFloat(ps.paddingBottom) || 0);
+        var h = Math.min(t.height, inner);
+        if (own) hl.style.borderRadius = getComputedStyle(lists[0].querySelector('.nav_dropdown-link') || tab).borderRadius;
+        hl.style.transition = (glide && !reduce.matches ? ['transform', 'width', 'height'].map(function (p) {
+          return p + ' ' + HOVER_MS + 'ms ' + EASE;
+        }).join(',') + ',' : '') + 'opacity 150ms';
+        hl.style.width = t.width + 'px';
+        hl.style.height = h + 'px';
+        hl.style.transform = 'translate(' + (t.left - b.left) + 'px,' + (t.top - b.top + (t.height - h) / 2) + 'px)';
+      }
+      function update() {
+        var tab = !enabled() ? null : over ? tabOf(over) : active ? tabOf(active.parentElement) : null;
+        if (tab === lit) {
+          if (tab) place(tab, false); // re-measure in place (resize, fonts)
+          return;
+        }
+        var fresh = !lit;
+        lit = tab;
+        if (!tab) {
+          hl.style.opacity = '0';
+          return;
+        }
+        place(tab, !fresh);
+        hl.style.opacity = '1';
+      }
+      Array.prototype.forEach.call(bar.children, function (el) {
+        if (el === hl) return;
+        el.addEventListener('pointerenter', function (e) {
+          if (e.pointerType !== 'mouse') return;
+          over = el;
+          update();
+        });
+        el.addEventListener('pointerleave', function () {
+          if (over === el) over = null;
+          update();
+        });
+        el.addEventListener('focusin', function () {
+          over = el;
+          update();
+        });
+        el.addEventListener('focusout', function () {
+          if (over === el) over = null;
+          update();
+        });
+      });
+      return { update: update };
+    }
+
     // ---- link transitions --------------------------------------------------
     function animate(list, frames, timing) {
       if (reduce.matches || !list.animate) return;
@@ -285,6 +367,7 @@
         hovers[i].engage(on);
         if (l !== active) hovers[i].clear();
       });
+      tabs.update();
       measure();
     }
 
@@ -420,7 +503,9 @@
       var sL = p.left + cur.x0;
       var sR = p.left + cur.x1;
       var sB = p.bottom + cur.h;
-      var rad = Math.min(radius, cur.h / 2).toFixed(1);
+      // Corners keep their full width and only flatten once the panel is shorter than two radii.
+      var rx = radius.toFixed(1);
+      var ry = Math.min(radius, cur.h / 2).toFixed(1);
       if (!moving) switching = false;
       // Read every rect first, then write, so a frame costs one layout at most.
       var jobs = lists.map(function (l) {
@@ -450,7 +535,7 @@
           var left = Math.max(0, sL - r.left).toFixed(1);
           var right = Math.max(0, r.right - sR).toFixed(1);
           var bottom = Math.max(0, r.bottom - sB).toFixed(1);
-          setClip(l, 'inset(0px ' + right + 'px ' + bottom + 'px ' + left + 'px round 0px 0px ' + rad + 'px ' + rad + 'px)');
+          setClip(l, 'inset(0px ' + right + 'px ' + bottom + 'px ' + left + 'px round 0px 0px ' + rx + 'px ' + rx + 'px / 0px 0px ' + ry + 'px ' + ry + 'px)');
         }
       });
     }
@@ -467,7 +552,11 @@
       var vb = svg.viewBox.baseVal;
       var k = vb.height / svg.getBoundingClientRect().height;
       var y0 = vb.height - 0.6;
-      var r = Math.min(radius, cur.h / 2) * k;
+      // While the panel is taller than two radii the corners are round. Shorter than that, they keep
+      // their full width (rx) and only lose height (ry), so the concave shoulders where the panel
+      // meets the pill stay soft and flatten into the pill instead of shrinking to a square notch.
+      var rx = radius * k;
+      var ry = Math.min(radius, cur.h / 2) * k;
       var x0 = cur.x0 * k;
       var x1 = cur.x1 * k;
       var y1 = y0 + cur.h * k;
@@ -475,16 +564,16 @@
         return n.toFixed(2);
       };
       var arc = function (sweep, x, y) {
-        return ' A' + f(r) + ' ' + f(r) + ' 0 0 ' + sweep + ' ' + f(x) + ' ' + f(y);
+        return ' A' + f(rx) + ' ' + f(ry) + ' 0 0 ' + sweep + ' ' + f(x) + ' ' + f(y);
       };
       path.setAttribute(
         'd',
-        'M' + f(x0 - r) + ' ' + f(y0 - 2) + ' L' + f(x0 - r) + ' ' + f(y0) +
-          arc(1, x0, y0 + r) + // concave, pill to left side
-          ' L' + f(x0) + ' ' + f(y1 - r) + arc(0, x0 + r, y1) +
-          ' L' + f(x1 - r) + ' ' + f(y1) + arc(0, x1, y1 - r) +
-          ' L' + f(x1) + ' ' + f(y0 + r) + arc(1, x1 + r, y0) + // concave, right side to pill
-          ' L' + f(x1 + r) + ' ' + f(y0 - 2) + ' Z'
+        'M' + f(x0 - rx) + ' ' + f(y0 - 2) + ' L' + f(x0 - rx) + ' ' + f(y0) +
+          arc(1, x0, y0 + ry) + // concave, pill to left side
+          ' L' + f(x0) + ' ' + f(y1 - ry) + arc(0, x0 + rx, y1) +
+          ' L' + f(x1 - rx) + ' ' + f(y1) + arc(0, x1, y1 - ry) +
+          ' L' + f(x1) + ' ' + f(y0 + ry) + arc(1, x1 + rx, y0) + // concave, right side to pill
+          ' L' + f(x1 + rx) + ' ' + f(y0 - 2) + ' Z'
       );
     }
 
@@ -507,6 +596,7 @@
 
     // ---- wiring ------------------------------------------------------------
     hovers = lists.map(fluidHover);
+    tabs = tabHover();
 
     var mo = new MutationObserver(sync);
     lists.forEach(function (l) {

@@ -29,13 +29,13 @@ Source is ES5-compatible browser JS, because nothing transpiles it.
 Head code:
 
 ```html
-<script src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.9.4/dist/parkway-head.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.9.5/dist/parkway-head.min.js"></script>
 ```
 
 Footer code, alongside the narthex nav tag:
 
 ```html
-<script defer src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.9.4/dist/parkway.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.9.5/dist/parkway.min.js"></script>
 ```
 
 jsDelivr minifies on request when the URL ends in `.min.js`, and only serves
@@ -209,6 +209,7 @@ Everything visual is a class in the style panel. The script only toggles them.
 | `nav_dropdown-icon` | transition: transform 250ms |
 | `nav_dropdown-icon` + combo `is-open` | rotate 180deg |
 | `nav_dropdown-highlight` (optional div inside each list) | background and radius of the gliding hover. Without it the script makes its own from the link radius and `--brand--brand-100`. |
+| `nav_links-highlight` (optional div inside `.nav_links`) | background and radius of the gliding highlight behind the top-level tabs. Without it the script makes its own from the dropdown link radius and `--brand--brand-100`; its height is the pill's inner height, so it lines up with the header button. |
 
 `nav_dropdown-list` + combo `is-leaving` is also applied to the list being left
 while Webflow's hover delay still holds it open, if it ever needs its own style.
