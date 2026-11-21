@@ -11,7 +11,8 @@
  * normal floating-card look and behaviour, because every "connected" style in
  * Webflow hangs off classes that only this script applies:
  *
- *   nav_dropdown-list.is-connected  card background / border / shadow removed
+ *   nav_dropdown-list.is-connected  card background / border / shadow removed, isolation: isolate,
+ *                                   ::before hover bridge hidden (the list sits flush under its tab)
  *   nav_dropdown-list.is-leaving    list being left while Webflow's hover delay holds it open
  *   nav_dropdown-icon.is-open       chevron rotated (desktop: the active tab; mobile: open dropdowns)
  *   nav_dropdown-list.is-open       collapsed (tablet/mobile) menu only: mirrors Webflow's w--open
@@ -26,8 +27,9 @@
  *   vci-dropdown-safe-triangle  false = switch tabs the instant they are touched (true)
  *   vci-dropdown-pass-through   ms a tab must be hovered before it takes over, 0 = off (0)
  *
- * Highlight elements:
- *   .nav_dropdown-highlight  inside each list: the gliding link highlight (made with the brand tint if absent)
+ * Highlight elements (Webflow elements, styled in the panel; the script only sizes and places them):
+ *   .nav_dropdown-highlight  inside each list: the gliding link highlight (.is-active, .is-instant;
+ *                            links get .is-glide while it runs)
  *   .nav_links-highlight     inside .nav_links (Webflow element, required for the tab highlight;
  *                            combos .is-active shown, .is-instant no glide). Sized from the links' padding.
  *
@@ -40,8 +42,6 @@
   var OPEN_IN = 280; // ms, links easing in on a fresh open
   var DRIFT_MS = 220; // ms, new links finishing their drift after a switch
   var EASE = 'cubic-bezier(.2,.7,.2,1)';
-  var HOVER_MS = 180; // ms for the link highlight to glide to the next link
-  var HOVER_TINT = 'var(--brand--brand-100)'; // same tint as nav_dropdown-link:hover
   var SAFE_REST = 120; // ms resting on a tab inside the safe triangle before it switches anyway
   var SAFE_SLOPE = 0.35; // how steeply down (dy/dx) the pointer must be moving to count as aiming at the panel
   var SAFE_PAD = 12; // px the safe triangle's base overhangs the panel on each side
@@ -137,21 +137,17 @@
     }
 
     // ---- fluid hover -------------------------------------------------------
-    // One highlight per list that glides from link to link instead of each
-    // link's own :hover background blinking on and off. Uses a
-    // .nav_dropdown-highlight element inside the list if Webflow has one;
-    // otherwise makes its own from the link's radius and the brand tint.
+    // One highlight per list that glides from link to link instead of each link's own
+    // :hover background blinking on and off. All of its look is the .nav_dropdown-highlight
+    // element and classes in Webflow; this only sizes and places it and toggles:
+    //   .nav_dropdown-highlight.is-active   shown
+    //   .nav_dropdown-highlight.is-instant  jump without gliding (a fresh entry fades in where it is)
+    //   .nav_dropdown-link.is-glide         link's own hover background off while the highlight runs
+    // (the list's isolation, which keeps the highlight's z-index:-1 inside it, is on .is-connected).
+    // No highlight element in a list: that list keeps its links' native :hover.
     function fluidHover(list) {
       var hl = list.querySelector('.nav_dropdown-highlight');
-      var own = !hl;
-      if (own) {
-        hl = document.createElement('div');
-        hl.className = 'nav_dropdown-highlight';
-        hl.style.backgroundColor = HOVER_TINT;
-        list.appendChild(hl);
-      }
-      hl.setAttribute('aria-hidden', 'true');
-      hl.style.cssText += ';position:absolute;top:0;left:0;z-index:-1;pointer-events:none;opacity:0;';
+      if (!hl) return { clear: function () {}, engage: function () {} };
       var lit = null;
       var engaged = false;
 
@@ -164,19 +160,15 @@
         var fresh = !lit;
         lit = link;
         if (!link) {
-          hl.style.opacity = '0';
+          setClass(hl, 'is-active', false);
           return;
         }
-        if (own) hl.style.borderRadius = getComputedStyle(link).borderRadius;
         // A fresh entry fades in on the link itself; after that it travels.
-        var travel = fresh || reduce.matches ? '' : ['transform', 'width', 'height'].map(function (p) {
-          return p + ' ' + HOVER_MS + 'ms ' + EASE;
-        }).join(',') + ',';
-        hl.style.transition = travel + 'opacity 150ms';
+        setClass(hl, 'is-instant', fresh || reduce.matches);
         hl.style.width = link.offsetWidth + 'px';
         hl.style.height = link.offsetHeight + 'px';
         hl.style.transform = 'translate(' + link.offsetLeft + 'px,' + link.offsetTop + 'px)';
-        hl.style.opacity = '1';
+        setClass(hl, 'is-active', true);
       }
 
       // Nearest link down the list, so the padding and gaps never go dark.
@@ -220,9 +212,8 @@
           on = on && hasPointer; // without pointer events the links keep their own :hover
           if (on === engaged) return;
           engaged = on;
-          list.style.isolation = on ? 'isolate' : '';
           links().forEach(function (a) {
-            a.style.backgroundColor = on ? 'transparent' : '';
+            setClass(a, 'is-glide', on);
           });
           if (!on) show(null);
         }
@@ -319,7 +310,7 @@
     function animate(list, frames, timing) {
       if (reduce.matches || !list.animate) return;
       Array.prototype.forEach.call(list.children, function (el) {
-        if (el.classList.contains('nav_dropdown-highlight')) return;
+        if (el.classList.contains('nav_dropdown-highlight')) return; // its own fade is in Webflow
         running.push(el.animate(frames, timing));
       });
     }

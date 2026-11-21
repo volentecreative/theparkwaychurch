@@ -29,13 +29,13 @@ Source is ES5-compatible browser JS, because nothing transpiles it.
 Head code:
 
 ```html
-<script src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.9.5/dist/parkway-head.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.9.7/dist/parkway-head.min.js"></script>
 ```
 
 Footer code, alongside the narthex nav tag:
 
 ```html
-<script defer src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.9.5/dist/parkway.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.9.7/dist/parkway.min.js"></script>
 ```
 
 jsDelivr minifies on request when the URL ends in `.min.js`, and only serves
@@ -205,10 +205,11 @@ Everything visual is a class in the style panel. The script only toggles them.
 
 | class | what to set |
 | --- | --- |
-| `nav_dropdown-list` + combo `is-connected` | background transparent, no border, no shadow. Keep the radius: the script reads the bottom corners for the panel. |
+| `nav_dropdown-list` + combo `is-connected` | background transparent, no border, no shadow, `isolation: isolate` (keeps the highlight's z-index -1 inside the list), and `::before` display none (the floating card's hover bridge would otherwise cover the bottom of the tab). Keep the radius: the script reads the bottom corners for the panel. |
 | `nav_dropdown-icon` | transition: transform 250ms |
 | `nav_dropdown-icon` + combo `is-open` | rotate 180deg |
-| `nav_dropdown-highlight` (optional div inside each list) | background and radius of the gliding hover. Without it the script makes its own from the link radius and `--brand--brand-100`. |
+| `nav_dropdown-highlight` (div, first child of each `nav_dropdown-list`) | The gliding link highlight. Absolute at top/left 0, z-index -1, no pointer events, brand-100 tint, 0.75rem radius, opacity 0, fade/glide transitions; hidden at tablet and below. Combos: `is-active` (opacity 1), `is-instant` (transition on opacity only). The script only sets width, height and position. Without it, that list's links keep their native `:hover`. |
+| `nav_dropdown-link` + combo `is-glide` | background transparent, also on `:hover`. Applied by the script while the gliding highlight is in charge. |
 | `nav_links-highlight` (div, first child of `.nav_links`) | The gliding highlight behind the top-level tabs. Absolute at top/left 0, z-index -1, no pointer events, brand-100 tint, link radius, opacity 0, and the fade/glide transitions. Combos: `is-active` (opacity 1), `is-instant` (transition on opacity only, so a fresh appearance does not glide in). Hidden at tablet and below. The script only sets its width, height and position (the label plus the dropdown links' padding). Without the element there is no tab highlight. |
 
 `nav_dropdown-list` + combo `is-leaving` is also applied to the list being left
