@@ -1,4 +1,4 @@
-/*! The Parkway Church site code v0.9.4. Built from src/, do not edit. */
+/*! The Parkway Church site code v0.9.5. Built from src/, do not edit. */
 /* ---- src/buttons.js ---- */
 /* Arch button morph, and the nav pill shape that follows it.
  * Why custom code: the hover morph tweens an SVG path "d" attribute, which the style
