@@ -28,10 +28,11 @@
  *   vci-dropdown-pass-through   ms a tab must be hovered before it takes over, 0 = off (0)
  *
  * Highlight elements (Webflow elements, styled in the panel; the script only sizes and places them):
- *   .nav_dropdown-highlight  inside each list: the gliding link highlight (.is-active, .is-instant;
- *                            links get .is-glide while it runs)
- *   .nav_links-highlight     inside .nav_links (Webflow element, required for the tab highlight;
- *                            combos .is-active shown, .is-instant no glide). Sized from the links' padding.
+ *   .nav_dropdown-highlight  authored inside each list; one per dropdown, shared by its tab and its links
+ *                            and glided between them (.is-active, .is-instant; links get .is-glide while
+ *                            it runs). Moved into .nav_links on desktop so it sits behind the tab label.
+ *   .nav_links-highlight     inside .nav_links: the highlight for plain top-level .nav_link tabs (no
+ *                            dropdown); .is-active shown, .is-instant no glide. Sized from the links' padding.
  *
  * Expects (drawn by buttons.js): .nav_pill > svg.nav_pill-shape > path.nav_pill-fill
  */
@@ -137,38 +138,85 @@
     }
 
     // ---- fluid hover -------------------------------------------------------
-    // One highlight per list that glides from link to link instead of each link's own
-    // :hover background blinking on and off. All of its look is the .nav_dropdown-highlight
-    // element and classes in Webflow; this only sizes and places it and toggles:
+    // One highlight per dropdown, shared by its tab and its links: it sits on the tab while the
+    // pointer is there, glides down into the links and back up, and fades out when the pointer
+    // leaves that dropdown. Each dropdown has its own, so moving to another tab fades that tab's
+    // highlight in rather than dragging one across. All of its look is the .nav_dropdown-highlight
+    // element and classes in Webflow; this only sizes, places and toggles it:
     //   .nav_dropdown-highlight.is-active   shown
     //   .nav_dropdown-highlight.is-instant  jump without gliding (a fresh entry fades in where it is)
     //   .nav_dropdown-link.is-glide         link's own hover background off while the highlight runs
-    // (the list's isolation, which keeps the highlight's z-index:-1 inside it, is on .is-connected).
-    // No highlight element in a list: that list keeps its links' native :hover.
+    // The element is authored inside its list, but the list stacks above the tab and would wash
+    // over the tab's label, so on desktop the script moves it into .nav_links, behind the tabs
+    // and the (transparent, connected) links, where .nav_links-highlight already lives.
+    // No highlight element in a list: that list keeps its links' and tab's native :hover.
     function fluidHover(list) {
       var hl = list.querySelector('.nav_dropdown-highlight');
-      if (!hl) return { clear: function () {}, engage: function () {} };
+      var bar = pill.querySelector('.nav_links');
+      var dd = list.parentElement;
+      var tab = dd.querySelector('.nav_dropdown-toggle');
+      var none = { clear: function () {}, engage: function () {}, refresh: function () {}, owns: false };
+      if (!hl || !bar || !tab || !hasPointer) return none;
+      if (hl.parentNode !== bar) bar.insertBefore(hl, bar.firstChild);
       var lit = null;
       var engaged = false;
+      var leaveTimer = 0;
+      var range = document.createRange();
 
       function links() {
         return Array.prototype.slice.call(list.querySelectorAll('.nav_dropdown-link'));
       }
 
-      function show(link) {
-        if (link === lit) return;
+      // Box of the target in .nav_links' own coordinates. The tab is sized like a link's hover:
+      // its label plus the links' padding, read live so the two always match.
+      function box(target) {
+        var b = bar.getBoundingClientRect();
+        if (target !== tab) {
+          var r = target.getBoundingClientRect();
+          return { x: r.left - b.left, y: r.top - b.top, w: r.width, h: r.height };
+        }
+        var link = links()[0];
+        var lc = link ? getComputedStyle(link) : null;
+        var px = function (v) {
+          return parseFloat(v) || 0;
+        };
+        var pt = lc ? px(lc.paddingTop) : 10;
+        var pr = lc ? px(lc.paddingRight) : 12;
+        var pb = lc ? px(lc.paddingBottom) : 10;
+        var pl = lc ? px(lc.paddingLeft) : 12;
+        range.selectNodeContents(tab);
+        var c = range.getBoundingClientRect();
+        return { x: c.left - b.left - pl, y: c.top - b.top - pt, w: c.width + pl + pr, h: c.height + pt + pb };
+      }
+
+      function place(target) {
+        var r = box(target);
+        hl.style.width = r.w + 'px';
+        hl.style.height = r.h + 'px';
+        hl.style.transform = 'translate(' + r.x + 'px,' + r.y + 'px)';
+      }
+
+      function show(target) {
+        clearTimeout(leaveTimer);
+        if (target === lit) return;
         var fresh = !lit;
-        lit = link;
-        if (!link) {
+        lit = target;
+        if (!target) {
           setClass(hl, 'is-active', false);
           return;
         }
-        // A fresh entry fades in on the link itself; after that it travels.
+        // A fresh entry fades in where it lands; after that it travels, tab and links alike.
         setClass(hl, 'is-instant', fresh || reduce.matches);
-        hl.style.width = link.offsetWidth + 'px';
-        hl.style.height = link.offsetHeight + 'px';
-        hl.style.transform = 'translate(' + link.offsetLeft + 'px,' + link.offsetTop + 'px)';
+        place(target);
         setClass(hl, 'is-active', true);
+      }
+
+      // Leaving waits a beat, so crossing a gap inside the dropdown never blinks.
+      function hide() {
+        clearTimeout(leaveTimer);
+        leaveTimer = setTimeout(function () {
+          show(null);
+        }, 60);
       }
 
       // Nearest link down the list, so the padding and gaps never go dark.
@@ -186,30 +234,41 @@
         return best;
       }
 
+      tab.addEventListener('pointerenter', function (e) {
+        if (engaged && e.pointerType === 'mouse') show(tab);
+      });
       list.addEventListener('pointermove', function (e) {
         if (!engaged || e.pointerType !== 'mouse' || list !== active) return;
-        // The bridge strip above the panel belongs to the tab, not to the first link.
-        show(e.clientY < pill.getBoundingClientRect().bottom ? null : nearest(e.clientY));
+        // The bridge strip above the panel still belongs to the tab.
+        show(e.clientY < pill.getBoundingClientRect().bottom ? tab : nearest(e.clientY));
       });
-      list.addEventListener('pointerleave', function () {
-        show(null);
+      dd.addEventListener('pointerleave', function () {
+        if (engaged) hide();
+      });
+      tab.addEventListener('focusin', function () {
+        if (engaged && tab.matches(':focus-visible')) show(tab);
       });
       list.addEventListener('focusin', function (e) {
         var a = e.target.closest && e.target.closest('.nav_dropdown-link');
         if (engaged && a) show(a);
       });
-      list.addEventListener('focusout', function () {
-        show(null);
+      dd.addEventListener('focusout', function (e) {
+        if (!dd.contains(e.relatedTarget)) hide();
       });
 
       return {
+        owns: true,
         clear: function () {
+          clearTimeout(leaveTimer);
           show(null);
         },
-        // Engaged: the highlight replaces each link's own hover background.
+        // Re-measure where it stands (resize, fonts, the panel settling) without re-fading.
+        refresh: function () {
+          if (lit) place(lit);
+        },
+        // Engaged: the highlight replaces the links' own hover background.
         // Disengaged (mobile menu): the links' native :hover is back in charge.
         engage: function (on) {
-          on = on && hasPointer; // without pointer events the links keep their own :hover
           if (on === engaged) return;
           engaged = on;
           links().forEach(function (a) {
@@ -237,7 +296,8 @@
       var lit = null;
       var over = null; // tab the pointer or focus is on
       var leaveTimer = 0;
-      var tabs = Array.prototype.slice.call(bar.querySelectorAll('.nav_dropdown-toggle, .nav_link'));
+      var tabs = Array.prototype.slice.call(bar.querySelectorAll('.nav_link'));
+      if (!tabs.length) return { update: function () {} };
       var range = document.createRange();
 
       function place(tab, glide) {
@@ -367,7 +427,9 @@
         setClass(icons[i], 'is-open', on ? l === active : isOpen(l));
         l.style.pointerEvents = on && l !== active ? 'none' : '';
         hovers[i].engage(on);
-        if (l !== active) hovers[i].clear();
+        // A tab can light up before its list takes the panel (safe triangle); keep that.
+        if (l !== active && hovered !== l) hovers[i].clear();
+        else hovers[i].refresh();
       });
       tabs.update();
       measure();
