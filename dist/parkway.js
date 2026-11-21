@@ -1,4 +1,4 @@
-/*! The Parkway Church site code v0.9.3. Built from src/, do not edit. */
+/*! The Parkway Church site code v0.9.4. Built from src/, do not edit. */
 /* ---- src/buttons.js ---- */
 /* Arch button morph, and the nav pill shape that follows it.
  * Why custom code: the hover morph tweens an SVG path "d" attribute, which the style
@@ -10,8 +10,8 @@
  * and tablets get no hover. Hover colors are switched off at tablet and below natively.
  * Header: a Primary button at the right end of .nav_pill also drives the paths in
  * .nav_pill-shape, so the pill edge follows the arch on hover (colors stay native).
- * Tertiary: an underline drawn 0.2em below the label. On hover (and again on leave) it slides
- * out to the right while a second copy slides in from the left just behind it, the old
+ * Tertiary: an underline drawn 0.2em below the label. On hover it slides out to the right
+ * while a second copy slides in from the left just behind it (one way; leaving does nothing), the old
  * Squarespace underline push. Both lines are the same .button_path, so stroke stays native;
  * the script only moves their stroke-dashoffset. Skipped for reduced motion and touch.
  */
@@ -90,7 +90,7 @@
 
     var W = 160, RY = 63, cur = 0, from = 0, target = 0, t0 = 0, raf = 0;
     /* Underline slide state: `on` is the visible line, `off` waits hidden to the left. */
-    var on = path, off = null, active = 0, shown = 0, sliding = false, s0 = 0, sNow = 0;
+    var on = path, off = null, sliding = false, s0 = 0, sNow = 0;
     if (kind === 'underline') { off = path.cloneNode(false); path.parentNode.insertBefore(off, path.nextSibling); }
     function dash(el, offset) {
       el.style.strokeDasharray = W.toFixed(2) + ' ' + (W + PAD).toFixed(2);
@@ -131,14 +131,12 @@
       sNow = now; draw();
       if (now - s0 < SLAG + SDUR) { requestAnimationFrame(slideTick); return; }
       var t = on; on = off; off = t; sliding = false; draw();
-      if (active !== shown) slide();
     }
-    function slide() { shown = active; sliding = true; s0 = sNow = performance.now(); requestAnimationFrame(slideTick); }
     function go(to) {
       if (kind === 'underline') {
-        /* One slide per enter and per leave. A leave mid-slide plays right after the enter finishes. */
-        if (to === active) return; active = to;
-        if (!reduce && !sliding) slide();
+        /* One slide on hover-in only; leaving does nothing. A re-enter mid-slide is ignored. */
+        if (to !== 1 || reduce || sliding) return;
+        sliding = true; s0 = sNow = performance.now(); requestAnimationFrame(slideTick);
         return;
       }
       if (to === cur && !raf) return;
