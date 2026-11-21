@@ -26,9 +26,10 @@
  *   vci-dropdown-safe-triangle  false = switch tabs the instant they are touched (true)
  *   vci-dropdown-pass-through   ms a tab must be hovered before it takes over, 0 = off (0)
  *
- * Optional styling hooks (made by the script with the brand tint if absent):
- *   .nav_dropdown-highlight  inside each list: the gliding link highlight
- *   .nav_links-highlight     inside .nav_links: the gliding tab highlight
+ * Highlight elements:
+ *   .nav_dropdown-highlight  inside each list: the gliding link highlight (made with the brand tint if absent)
+ *   .nav_links-highlight     inside .nav_links (Webflow element, required for the tab highlight;
+ *                            combos .is-active shown, .is-instant no glide). Sized from the links' padding.
  *
  * Expects (drawn by buttons.js): .nav_pill > svg.nav_pill-shape > path.nav_pill-fill
  */
@@ -229,76 +230,86 @@
     }
 
     // ---- tab highlight -----------------------------------------------------
-    // The same gliding tint as the links, behind the top-level tabs. It follows the pointer
-    // between tabs, rests on the open tab while its panel is in use, and fades out otherwise.
-    // Its height matches the pill's inner height (pill minus its vertical padding), so it
-    // lines up with the header button.
+    // A gliding highlight behind the top-level tabs. All of its look (tint, radius, position,
+    // stacking, fade and glide timing) is the .nav_links-highlight element and classes in
+    // Webflow; this only sizes and places it, which the style panel can't do, and toggles:
+    //   .is-active   shown
+    //   .is-instant  jump without gliding (a fresh appearance fades in where it is)
+    // It is sized like a link's hover: the tab's label plus the dropdown links' padding, read
+    // live so the two always match. The tab's own hitbox is untouched. It belongs to the tab,
+    // not its panel: it fades once the pointer goes down into the links, and glides between tabs.
+    // No .nav_links-highlight in Webflow: nothing happens and the tabs keep their own hover.
     function tabHover() {
       var bar = pill.querySelector('.nav_links');
-      if (!bar || !hasPointer) return { update: function () {} };
-      var hl = bar.querySelector('.nav_links-highlight');
-      var own = !hl;
-      if (own) {
-        hl = document.createElement('div');
-        hl.className = 'nav_links-highlight';
-        hl.style.backgroundColor = HOVER_TINT;
-        bar.insertBefore(hl, bar.firstChild);
-      }
-      hl.setAttribute('aria-hidden', 'true');
-      hl.style.cssText += ';position:absolute;top:0;left:0;z-index:-1;pointer-events:none;opacity:0;';
+      var hl = bar && bar.querySelector('.nav_links-highlight');
+      if (!hl || !hasPointer) return { update: function () {} };
       var lit = null;
-      var over = null; // tab element the pointer or focus is on
+      var over = null; // tab the pointer or focus is on
+      var leaveTimer = 0;
+      var tabs = Array.prototype.slice.call(bar.querySelectorAll('.nav_dropdown-toggle, .nav_link'));
+      var range = document.createRange();
 
-      function tabOf(el) {
-        return el && (el.querySelector('.nav_dropdown-toggle') || el);
-      }
       function place(tab, glide) {
+        var link = lists[0].querySelector('.nav_dropdown-link');
+        var lc = link ? getComputedStyle(link) : null;
+        var px = function (v) {
+          return parseFloat(v) || 0;
+        };
+        // The label's box: the tab's content without its own (wider) padding.
+        range.selectNodeContents(tab);
+        var c = range.getBoundingClientRect();
         var b = bar.getBoundingClientRect();
-        var t = tab.getBoundingClientRect();
-        var ps = getComputedStyle(pill);
-        var inner = pill.getBoundingClientRect().height - (parseFloat(ps.paddingTop) || 0) - (parseFloat(ps.paddingBottom) || 0);
-        var h = Math.min(t.height, inner);
-        if (own) hl.style.borderRadius = getComputedStyle(lists[0].querySelector('.nav_dropdown-link') || tab).borderRadius;
-        hl.style.transition = (glide && !reduce.matches ? ['transform', 'width', 'height'].map(function (p) {
-          return p + ' ' + HOVER_MS + 'ms ' + EASE;
-        }).join(',') + ',' : '') + 'opacity 150ms';
-        hl.style.width = t.width + 'px';
-        hl.style.height = h + 'px';
-        hl.style.transform = 'translate(' + (t.left - b.left) + 'px,' + (t.top - b.top + (t.height - h) / 2) + 'px)';
+        var pt = lc ? px(lc.paddingTop) : 10;
+        var pr = lc ? px(lc.paddingRight) : 12;
+        var pb = lc ? px(lc.paddingBottom) : 10;
+        var pl = lc ? px(lc.paddingLeft) : 12;
+        // glide: true slides from the last tab, false jumps, null (re-measure) leaves it as it is.
+        if (glide !== null) setClass(hl, 'is-instant', !glide || reduce.matches);
+        hl.style.width = c.width + pl + pr + 'px';
+        hl.style.height = c.height + pt + pb + 'px';
+        hl.style.transform = 'translate(' + (c.left - b.left - pl) + 'px,' + (c.top - b.top - pt) + 'px)';
       }
       function update() {
-        var tab = !enabled() ? null : over ? tabOf(over) : active ? tabOf(active.parentElement) : null;
+        var tab = enabled() ? over : null;
         if (tab === lit) {
-          if (tab) place(tab, false); // re-measure in place (resize, fonts)
+          if (tab) place(tab, null); // re-measure in place (resize, fonts, a dropdown opening)
           return;
         }
         var fresh = !lit;
         lit = tab;
         if (!tab) {
-          hl.style.opacity = '0';
+          setClass(hl, 'is-active', false);
           return;
         }
         place(tab, !fresh);
-        hl.style.opacity = '1';
+        setClass(hl, 'is-active', true);
       }
-      Array.prototype.forEach.call(bar.children, function (el) {
-        if (el === hl) return;
-        el.addEventListener('pointerenter', function (e) {
-          if (e.pointerType !== 'mouse') return;
-          over = el;
+      function enter(tab) {
+        clearTimeout(leaveTimer);
+        over = tab;
+        update();
+      }
+      // Leaving waits a beat, so moving straight onto the next tab glides instead of re-fading.
+      function leave(tab) {
+        if (over !== tab) return;
+        clearTimeout(leaveTimer);
+        leaveTimer = setTimeout(function () {
+          if (over === tab) over = null;
           update();
+        }, 60);
+      }
+      tabs.forEach(function (tab) {
+        tab.addEventListener('pointerenter', function (e) {
+          if (e.pointerType === 'mouse') enter(tab);
         });
-        el.addEventListener('pointerleave', function () {
-          if (over === el) over = null;
-          update();
+        tab.addEventListener('pointerleave', function () {
+          leave(tab);
         });
-        el.addEventListener('focusin', function () {
-          over = el;
-          update();
+        tab.addEventListener('focusin', function () {
+          if (tab.matches(':focus-visible')) enter(tab);
         });
-        el.addEventListener('focusout', function () {
-          if (over === el) over = null;
-          update();
+        tab.addEventListener('focusout', function () {
+          leave(tab);
         });
       });
       return { update: update };

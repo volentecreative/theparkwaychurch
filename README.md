@@ -209,7 +209,7 @@ Everything visual is a class in the style panel. The script only toggles them.
 | `nav_dropdown-icon` | transition: transform 250ms |
 | `nav_dropdown-icon` + combo `is-open` | rotate 180deg |
 | `nav_dropdown-highlight` (optional div inside each list) | background and radius of the gliding hover. Without it the script makes its own from the link radius and `--brand--brand-100`. |
-| `nav_links-highlight` (optional div inside `.nav_links`) | background and radius of the gliding highlight behind the top-level tabs. Without it the script makes its own from the dropdown link radius and `--brand--brand-100`; its height is the pill's inner height, so it lines up with the header button. |
+| `nav_links-highlight` (div, first child of `.nav_links`) | The gliding highlight behind the top-level tabs. Absolute at top/left 0, z-index -1, no pointer events, brand-100 tint, link radius, opacity 0, and the fade/glide transitions. Combos: `is-active` (opacity 1), `is-instant` (transition on opacity only, so a fresh appearance does not glide in). Hidden at tablet and below. The script only sets its width, height and position (the label plus the dropdown links' padding). Without the element there is no tab highlight. |
 
 `nav_dropdown-list` + combo `is-leaving` is also applied to the list being left
 while Webflow's hover delay still holds it open, if it ever needs its own style.
