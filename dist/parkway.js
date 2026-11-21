@@ -1,4 +1,4 @@
-/*! The Parkway Church site code v0.9.2. Built from src/, do not edit. */
+/*! The Parkway Church site code v0.9.3. Built from src/, do not edit. */
 /* ---- src/buttons.js ---- */
 /* Arch button morph, and the nav pill shape that follows it.
  * Why custom code: the hover morph tweens an SVG path "d" attribute, which the style
@@ -10,10 +10,17 @@
  * and tablets get no hover. Hover colors are switched off at tablet and below natively.
  * Header: a Primary button at the right end of .nav_pill also drives the paths in
  * .nav_pill-shape, so the pill edge follows the arch on hover (colors stay native).
- * Tertiary: a plain underline drawn 0.2em below the label, with no hover morph.
+ * Tertiary: an underline drawn 0.2em below the label. On hover (and again on leave) it slides
+ * out to the right while a second copy slides in from the left just behind it, the old
+ * Squarespace underline push. Both lines are the same .button_path, so stroke stays native;
+ * the script only moves their stroke-dashoffset. Skipped for reduced motion and touch.
  */
 (function () {
   var DUR = 700, K = 0.5523, STEP = 12;
+  /* Underline slide: each line takes SDUR ms, the incoming one starts SLAG ms after the outgoing.
+     PAD keeps a hidden dash (and a round cap) fully off the ends of the rule. */
+  var SDUR = 450, SLAG = 140, PAD = 16;
+  var easeInOut = function (t) { t = Math.max(0, Math.min(1, t)); return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; };
   var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
   var ease = function (t) { t = Math.min(1, t); return 1 - Math.exp(-10.5 * t) * (1 + 10.5 * t); };
 
@@ -82,9 +89,22 @@
     if (pPath && pPath.length) { pill.classList.add('is-ready'); pSvg.classList.add('is-ready'); } else pPath = null;
 
     var W = 160, RY = 63, cur = 0, from = 0, target = 0, t0 = 0, raf = 0;
+    /* Underline slide state: `on` is the visible line, `off` waits hidden to the left. */
+    var on = path, off = null, active = 0, shown = 0, sliding = false, s0 = 0, sNow = 0;
+    if (kind === 'underline') { off = path.cloneNode(false); path.parentNode.insertBefore(off, path.nextSibling); }
+    function dash(el, offset) {
+      el.style.strokeDasharray = W.toFixed(2) + ' ' + (W + PAD).toFixed(2);
+      el.style.strokeDashoffset = offset.toFixed(2);
+    }
     function draw() {
       var d = kind === 'underline' ? toRule(W, RY) : toPath(W, inset, cur);
       path.setAttribute('d', d);
+      if (off) {
+        off.setAttribute('d', d);
+        var e = sliding ? sNow - s0 : 0, span = W + PAD;
+        dash(on, sliding ? -span * easeInOut(e / SDUR) : 0);
+        dash(off, sliding ? span * (1 - easeInOut((e - SLAG) / SDUR)) : span);
+      }
       if (shine) shine.setAttribute('d', d);
       if (pPath && PW) { var pd = toPath(PW, PI, follow ? cur : 0); pPath.forEach(function (n) { n.setAttribute('d', pd); }); }
     }
@@ -107,8 +127,21 @@
       var p = ease((now - t0) / DUR); cur = from + (target - from) * p; draw();
       if ((now - t0) < DUR) raf = requestAnimationFrame(tick); else { cur = target; draw(); raf = 0; }
     }
+    function slideTick(now) {
+      sNow = now; draw();
+      if (now - s0 < SLAG + SDUR) { requestAnimationFrame(slideTick); return; }
+      var t = on; on = off; off = t; sliding = false; draw();
+      if (active !== shown) slide();
+    }
+    function slide() { shown = active; sliding = true; s0 = sNow = performance.now(); requestAnimationFrame(slideTick); }
     function go(to) {
-      if (kind === 'underline' || (to === cur && !raf)) return;
+      if (kind === 'underline') {
+        /* One slide per enter and per leave. A leave mid-slide plays right after the enter finishes. */
+        if (to === active) return; active = to;
+        if (!reduce && !sliding) slide();
+        return;
+      }
+      if (to === cur && !raf) return;
       target = to; if (reduce) { cur = to; draw(); return; }
       from = cur; t0 = performance.now(); if (!raf) raf = requestAnimationFrame(tick);
     }
