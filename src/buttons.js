@@ -1,6 +1,9 @@
 /* Arch button morph, and the nav pill shape that follows it.
  * Why custom code: the hover morph tweens an SVG path "d" attribute, which the style
- * panel cannot do. All styling (fill, stroke, colors, variants) is native.
+ * panel cannot do. All styling (fill, stroke, colors, variants, shine, shadow) is native.
+ * The Primary button's shine (background-image gradient) and depth (box-shadow) are authored on
+ * .button_type in Webflow, so the Designer shows the finished button; this script mirrors those
+ * computed values onto the SVG (gradient path + drop-shadow filters) and keeps nothing of its own.
  * This script only (1) adds .is-ready, (2) sets the viewBox, (3) tweens the path "d".
  * Geometry: the resting shape fills the button_type box exactly (matches the native pill);
  * the hover tip overflows ~8px to the right into button_type's margin-right.
@@ -39,14 +42,51 @@
       ' C' + (32 - k) + ' ' + (64 - i) + ' ' + i + ' ' + (32 + k) + ' ' + i + ' 32' +
       ' C' + i + ' ' + (32 - k) + ' ' + (32 - k) + ' ' + i + ' 32 ' + i + ' Z';
   }
-  /* Light from above: a whisper of white at the top fading out by the middle, a touch of shade at
-     the bottom edge. Alpha only, so it works over every fill color and its hover transition. */
+  /* The look is authored in Webflow, not here: .button_type carries the shine as a top-to-bottom
+     background-image gradient and the depth as a box-shadow, so the Designer shows the finished
+     button. Once the SVG takes over (is-ready clears both), these mirror those exact values onto it:
+     a gradient path that follows the arch, and the shadow as drop-shadow filters on the SVG. */
+  function splitTop(s) { // split on commas that are not inside parentheses
+    var out = [], depth = 0, cur = '';
+    for (var i = 0; i < s.length; i++) {
+      var c = s[i];
+      if (c === '(') depth++; else if (c === ')') depth--;
+      if (c === ',' && !depth) { out.push(cur.trim()); cur = ''; } else cur += c;
+    }
+    if (cur.trim()) out.push(cur.trim());
+    return out;
+  }
+  function gradientStops(bg) {
+    var m = /linear-gradient\((.*)\)\s*$/.exec(bg || '');
+    if (!m) return null;
+    var parts = splitTop(m[1]), stops = [];
+    // Only top-to-bottom is mirrored (the default, "180deg" or "to bottom").
+    if (parts.length && !/^(rgba?|#|hsla?|transparent)/.test(parts[0])) {
+      if (!/^(180deg|to bottom)$/.test(parts[0])) return null;
+      parts.shift();
+    }
+    parts.forEach(function (p, i) {
+      var c = /^(rgba?\([^)]*\)|transparent)\s*([\d.]+%)?$/.exec(p);
+      if (!c) return;
+      var v = c[1] === 'transparent' ? [0, 0, 0, 0] : c[1].replace(/rgba?\(|\)/g, '').split(',').map(parseFloat);
+      stops.push([c[2] ? parseFloat(c[2]) / 100 : i / Math.max(1, parts.length - 1), 'rgb(' + v[0] + ',' + v[1] + ',' + v[2] + ')', v.length > 3 ? v[3] : 1]);
+    });
+    return stops.length > 1 ? stops : null;
+  }
+  function dropShadows(bs) {
+    if (!bs || bs === 'none') return '';
+    return splitTop(bs).filter(function (s) { return !/inset/.test(s); }).map(function (s) {
+      var color = (/(rgba?\([^)]*\)|#[0-9a-f]+)/i.exec(s) || [''])[0];
+      var n = s.replace(color, '').trim().split(/\s+/).map(parseFloat); // x y blur [spread]
+      return 'drop-shadow(' + (n[0] || 0) + 'px ' + (n[1] || 0) + 'px ' + (n[2] || 0) + 'px ' + color + ')';
+    }).join(' ');
+  }
   var shineId = 0;
-  function shineFor(svg) {
+  function shineFor(svg, stops) {
     var ns = 'http://www.w3.org/2000/svg', id = 'button-shine-' + (++shineId);
     var defs = document.createElementNS(ns, 'defs'), g = document.createElementNS(ns, 'linearGradient');
     g.setAttribute('id', id); g.setAttribute('x1', '0'); g.setAttribute('y1', '0'); g.setAttribute('x2', '0'); g.setAttribute('y2', '1');
-    [['0', '#fff', '0.16'], ['0.5', '#fff', '0'], ['0.75', '#000', '0'], ['1', '#000', '0.12']].forEach(function (s) {
+    stops.forEach(function (s) {
       var stop = document.createElementNS(ns, 'stop');
       stop.setAttribute('offset', s[0]); stop.setAttribute('stop-color', s[1]); stop.setAttribute('stop-opacity', s[2]);
       g.appendChild(stop);
@@ -71,13 +111,17 @@
     var cs = getComputedStyle(box);
     var kind = transparent(cs.backgroundColor) ? (parseFloat(cs.borderRadius) === 0 ? 'underline' : 'outline') : 'fill';
     var inset = kind === 'outline' ? 1 : 0;
+    /* Read the Webflow-authored shine and shadow now: is-ready clears them from the box. */
+    var stops = kind === 'fill' ? gradientStops(cs.backgroundImage) : null;
+    var shadow = kind === 'fill' ? dropShadows(cs.boxShadow) : '';
     box.classList.add('is-ready'); svg.classList.add('is-ready');
-    /* Filled buttons: a second path with the same outline carries a soft light-to-shade gradient
-       (a CSS gradient could not follow the arch). The drop shadow is native, on .button_shape.is-fill. */
+    /* Filled buttons: a second path with the same outline carries the gradient (a CSS gradient on the
+       box could not follow the arch), and the box-shadow moves to the SVG as drop-shadow filters. */
     var shine = null;
     if (kind === 'fill') {
       svg.classList.add('is-fill');
-      shine = shineFor(svg);
+      if (stops) shine = shineFor(svg, stops);
+      if (shadow) svg.style.filter = shadow;
     }
 
     /* Header pill: when this button sits at the right end of .nav_pill, the pill outline is drawn
