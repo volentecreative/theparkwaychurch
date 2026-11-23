@@ -14,6 +14,7 @@ measurements and mobile menu) still comes from
 | `src/nav-toggle.js` | Mirrors the hamburger's `is-open` onto its lines, so the X is styled in the panel. |
 | `src/reveal.js` | Default scroll entrance for headings, text, images and buttons. |
 | `src/nav-dropdown.js` | Connected nav dropdowns (see below). |
+| `src/seasons.js` | Swaps `vci-season="name"` text for the current season, from the Seasons CMS collection. |
 | `src/script-draw.js` | Trim-path write-on for `.text-style-script` lettering. |
 | `src/script-draw-paths.js` | **Generated** pen lines per word, from `scripts/trim-paths/`. |
 | `src/image-sizes-fix.js` | Sets each image's `sizes` to its rendered width. Same fix as The North Church. |
@@ -72,6 +73,21 @@ in the same direction.
 
 Change the speed and easing on `nav_component`'s transition; no new script
 version needed.
+
+## Current season
+
+Parkway's year runs in four seasons, kept in the **Seasons** CMS collection
+(Name, Start Month, End Month; a season may wrap the year, e.g. December to
+January). To change when a season starts or ends, edit it there and publish.
+
+A page that shows the season needs a hidden Collection List of Seasons
+(class `seasons_list-wrapper`, display none). Each item holds one div with
+`vci-season="item"` and `vci-season-name` / `vci-season-start` /
+`vci-season-end` bound to the fields. Any element with `vci-season="name"`
+then shows the season we're in today. If nothing matches, the Designer text
+stays. Home has this next to the "at Parkway" heading. Copy that list to reuse
+it on another page. It can't live in a component: the Webflow API won't bind
+CMS fields inside a component's Collection List.
 
 ## Script lettering write-on
 
