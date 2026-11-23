@@ -11,17 +11,17 @@
  * and tablets get no hover. Hover colors are switched off at tablet and below natively.
  * Header: a Primary button at the right end of .nav_pill also drives the paths in
  * .nav_pill-shape, so the pill edge follows the arch on hover (colors stay native).
- * Tertiary: an underline drawn 0.2em below the label. On hover it slides out to the right
- * while a second copy slides in from the left just behind it (one way; leaving does nothing), the old
- * Squarespace underline push. Both lines are the same .button_path, so stroke stays native;
- * the script only moves their stroke-dashoffset. Skipped for reduced motion and touch.
+ * Tertiary: the underline is built in Webflow (.button_underline > two .button_underline-line,
+ * shown only in the Tertiary variant, sitting 0.2em under the label), so the Designer and the live
+ * site render the same element. The SVG is not used for Tertiary. On hover the visible line slides
+ * out to the right while the other (parked off the left by .is-incoming) slides in just behind it
+ * (one way; leaving does nothing), the old Squarespace underline push. The script only sets their
+ * transform. Skipped for reduced motion and touch.
  */
 (function () {
   var DUR = 700, K = 0.5523, STEP = 12;
-  /* Underline slide: each line takes SDUR ms, the incoming one starts SLAG ms after the outgoing.
-     PAD keeps a hidden dash (and a round cap) fully off the ends of the rule. */
-  var SDUR = 450, SLAG = 140, PAD = 16;
-  var easeInOut = function (t) { t = Math.max(0, Math.min(1, t)); return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; };
+  /* Underline slide: each line takes SDUR ms, the incoming one starts SLAG ms after the outgoing. */
+  var SDUR = 450, SLAG = 140, SEASE = 'cubic-bezier(0.65, 0, 0.35, 1)';
   var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
   var ease = function (t) { t = Math.min(1, t); return 1 - Math.exp(-10.5 * t) * (1 + 10.5 * t); };
 
@@ -97,19 +97,47 @@
     svg.appendChild(p);
     return p;
   }
-  function toRule(W, y) { return 'M0 ' + y.toFixed(2) + ' L' + W.toFixed(2) + ' ' + y.toFixed(2); }
+  /* Tertiary: animate the two Webflow-built lines. `on` is visible, `off` waits off the left edge
+     (.button_underline overflow hides it). After a slide they swap roles. */
+  function setupUnderline(link, under) {
+    var lines = under.querySelectorAll('.button_underline-line');
+    if (lines.length < 2) return;
+    var on = lines[0], off = lines[1], sliding = false;
+    on.style.transform = 'translateX(0)'; off.style.transform = 'translateX(-100%)';
+    function slide() {
+      if (reduce || sliding || !on.animate) return;
+      sliding = true;
+      var opts = { duration: SDUR, easing: SEASE, fill: 'forwards' };
+      on.animate([{ transform: 'translateX(0)' }, { transform: 'translateX(100%)' }], opts);
+      var a = off.animate([{ transform: 'translateX(-100%)' }, { transform: 'translateX(0)' }],
+        { duration: SDUR, easing: SEASE, fill: 'forwards', delay: SLAG });
+      a.onfinish = function () {
+        var t = on; on = off; off = t;
+        on.style.transform = 'translateX(0)'; off.style.transform = 'translateX(-100%)';
+        on.getAnimations().concat(off.getAnimations()).forEach(function (x) { x.cancel(); });
+        sliding = false;
+      };
+    }
+    function keyboardFocus() { try { return link.matches(':focus-visible'); } catch (e) { return true; } }
+    link.addEventListener('pointerenter', function (e) { if (e.pointerType !== 'touch') slide(); });
+    link.addEventListener('focus', function () { if (keyboardFocus()) slide(); });
+  }
   function transparent(c) { return !c || c === 'transparent' || /rgba\(\s*\d+,\s*\d+,\s*\d+,\s*0\)/.test(c); }
 
   function setup(link) {
     var box = link.querySelector('.button_type'), svg = link.querySelector('.button_shape');
-    var path = link.querySelector('.button_path'), label = link.querySelector('.button_label');
-    if (!box || !svg || !path || link.__arch) return;
+    var path = link.querySelector('.button_path');
+    if (!box || link.__arch) return;
     link.__arch = true;
+    /* Tertiary: its own native underline, no SVG. */
+    var under = box.querySelector('.button_underline');
+    if (under && getComputedStyle(under).display !== 'none') return setupUnderline(link, under);
+    if (!svg || !path) return;
 
     /* Which variant? Read from the native styling before switching to SVG rendering:
-       transparent + rounded = Secondary (outline), transparent + square = Tertiary (underline), else Primary. */
+       transparent = Secondary (outline), else Primary. */
     var cs = getComputedStyle(box);
-    var kind = transparent(cs.backgroundColor) ? (parseFloat(cs.borderRadius) === 0 ? 'underline' : 'outline') : 'fill';
+    var kind = transparent(cs.backgroundColor) ? 'outline' : 'fill';
     var inset = kind === 'outline' ? 1 : 0;
     /* Read the Webflow-authored shine and shadow now: is-ready clears them from the box. */
     var stops = kind === 'fill' ? gradientStops(cs.backgroundImage) : null;
@@ -130,34 +158,16 @@
     var pPath = pSvg && kind === 'fill' ? pSvg.querySelectorAll('path') : null, PW = 0, PI = 0, follow = false;
     if (pPath && pPath.length) { pill.classList.add('is-ready'); pSvg.classList.add('is-ready'); } else pPath = null;
 
-    var W = 160, RY = 63, cur = 0, from = 0, target = 0, t0 = 0, raf = 0;
-    /* Underline slide state: `on` is the visible line, `off` waits hidden to the left. */
-    var on = path, off = null, sliding = false, s0 = 0, sNow = 0;
-    if (kind === 'underline') { off = path.cloneNode(false); path.parentNode.insertBefore(off, path.nextSibling); }
-    function dash(el, offset) {
-      el.style.strokeDasharray = W.toFixed(2) + ' ' + (W + PAD).toFixed(2);
-      el.style.strokeDashoffset = offset.toFixed(2);
-    }
+    var W = 160, cur = 0, from = 0, target = 0, t0 = 0, raf = 0;
     function draw() {
-      var d = kind === 'underline' ? toRule(W, RY) : toPath(W, inset, cur);
+      var d = toPath(W, inset, cur);
       path.setAttribute('d', d);
-      if (off) {
-        off.setAttribute('d', d);
-        var e = sliding ? sNow - s0 : 0, span = W + PAD;
-        dash(on, sliding ? -span * easeInOut(e / SDUR) : 0);
-        dash(off, sliding ? span * (1 - easeInOut((e - SLAG) / SDUR)) : span);
-      }
       if (shine) shine.setAttribute('d', d);
       if (pPath && PW) { var pd = toPath(PW, PI, follow ? cur : 0); pPath.forEach(function (n) { n.setAttribute('d', pd); }); }
     }
     function measure() {
       var r = box.getBoundingClientRect(); if (!r.height) return;
       W = r.width / r.height * 64; svg.setAttribute('viewBox', '0 0 ' + W + ' 64');
-      if (kind === 'underline' && label) {
-        /* Underline sits 0.2em under the label instead of at the bottom of the box. */
-        var lb = label.getBoundingClientRect();
-        RY = Math.min(63, (lb.bottom - r.top + 0.2 * parseFloat(getComputedStyle(label).fontSize)) / r.height * 64);
-      }
       if (pPath) {
         var q = pill.getBoundingClientRect();
         PW = q.width / q.height * 64; PI = 32 / q.height; pSvg.setAttribute('viewBox', '0 0 ' + PW + ' 64');
@@ -169,18 +179,7 @@
       var p = ease((now - t0) / DUR); cur = from + (target - from) * p; draw();
       if ((now - t0) < DUR) raf = requestAnimationFrame(tick); else { cur = target; draw(); raf = 0; }
     }
-    function slideTick(now) {
-      sNow = now; draw();
-      if (now - s0 < SLAG + SDUR) { requestAnimationFrame(slideTick); return; }
-      var t = on; on = off; off = t; sliding = false; draw();
-    }
     function go(to) {
-      if (kind === 'underline') {
-        /* One slide on hover-in only; leaving does nothing. A re-enter mid-slide is ignored. */
-        if (to !== 1 || reduce || sliding) return;
-        sliding = true; s0 = sNow = performance.now(); requestAnimationFrame(slideTick);
-        return;
-      }
       if (to === cur && !raf) return;
       target = to; if (reduce) { cur = to; draw(); return; }
       from = cur; t0 = performance.now(); if (!raf) raf = requestAnimationFrame(tick);

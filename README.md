@@ -119,6 +119,15 @@ shadow in the style panel. `buttons.js` also adds a `button_shine` path that
 copies the button outline with a light-to-shade gradient. The gradient lives in
 `shineFor()` in `src/buttons.js` because it has to follow the arch morph.
 
+## Tertiary underline
+
+The Tertiary underline is a Webflow element, not drawn by script:
+`button_type > button_underline > button_underline-line` ×2 (the second also
+`is-incoming`, parked off the left). `button_underline` is `display: none` and
+the Tertiary variant shows it, 0.2em under the label. Change its look (height,
+color, offset) in the style panel; the Designer and live site match. On hover
+`buttons.js` only slides the two lines with transforms and swaps them.
+
 ## Scroll entrances
 
 `src/reveal.js` gives core content one consistent entrance. Headings,
