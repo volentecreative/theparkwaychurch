@@ -23,7 +23,12 @@
    in the same direction. If this file doesn't load, the header just scrolls away with the page.
 
    Also closes an open nav dropdown when scrolling down, so a menu isn't carried off screen.
-   A dropdown holding keyboard focus stays open, and focus inside the header pins it. */
+   A dropdown holding keyboard focus stays open, and focus inside the header pins it.
+
+   Landing part-way down the page (reload with a restored scroll position, back/forward, or a
+   link to #section) shows the header pinned at the top, in place with no slide. Any scroll
+   that happens before the visitor's first wheel, touch, key or pointer press (or 1s after
+   load, whichever comes first) is treated as the browser's, not theirs. */
 (function(){
   var nav=document.querySelector('.nav_component'); if(!nav) return;
   var PINNED='is-pinned', THRESHOLD=6;
@@ -59,12 +64,12 @@
   // Apply a positioning change with the transition off, so only the slide is ever animated.
   function now(fn){ s.transition='none'; fn(); void nav.offsetHeight; s.transition=''; }
 
-  function pin(){
+  function pin(instant){
     if(nav.classList.contains(PINNED)) return;
     var r=nav.getBoundingClientRect(), base=natural();
     // From where it is now (above or a few px below its pinned spot), but never from further
     // away than just above the screen.
-    var from=still && still.matches ? 0 : Math.round(Math.max(r.top-base, -(r.bottom-r.top)-base-8));
+    var from=instant || (still && still.matches) ? 0 : Math.round(Math.max(r.top-base, -(r.bottom-r.top)-base-8));
     now(function(){
       nav.classList.add(PINNED); s.top='';
       s.transform=from?'translateY('+from+'px)':'';
@@ -90,11 +95,28 @@
     now(function(){ nav.classList.remove(PINNED); s.top=''; s.transform=''; });
   }
 
+  // Scroll the visitor didn't cause: restored position or a #hash jump. Show the header.
+  var settled=false;
+  function settle(){ settled=true; }
+  ['wheel','touchstart','keydown','pointerdown'].forEach(function(t){
+    addEventListener(t,settle,{passive:true,capture:true,once:true});
+  });
+  function settleSoon(){ setTimeout(settle,1000); }
+  if(document.readyState==='complete') settleSoon(); else addEventListener('load',settleSoon);
+
+  function arrive(){
+    if(scrollY<=0) return;
+    dir='up'; travel=0;
+    nav.setAttribute('data-scroll-direction',dir);
+    pin(true);
+  }
+
   function onScroll(){
     // Clamp: iOS rubber-banding past either end reports scroll that isn't real.
     var end=document.documentElement.scrollHeight-innerHeight;
     var y=Math.min(Math.max(0,scrollY),end), d=y-last; last=y;
     if(y<=0) return reset();
+    if(!settled) return arrive();
     if(!d) return;
     travel=(d>0)===(travel>0)?travel+d:d; // restarts when the direction flips
     var next=travel>THRESHOLD?'down':travel<-THRESHOLD?'up':dir;
@@ -105,5 +127,8 @@
   }
 
   addEventListener('scroll',onScroll,{passive:true});
+  // Back/forward cache: the page comes back mid-scroll with no scroll event.
+  addEventListener('pageshow',function(e){ if(e.persisted){ last=Math.max(0,scrollY); arrive(); } });
   nav.addEventListener('focusin',function(){ if(scrollY>0) pin(); });
+  arrive(); // already scrolled by the time this runs
 })();
