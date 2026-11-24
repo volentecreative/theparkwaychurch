@@ -1,4 +1,4 @@
-/*! The Parkway Church site code v0.9.40. Built from src/, do not edit. */
+/*! The Parkway Church site code v0.9.41. Built from src/, do not edit. */
 /* ---- src/announcement.js ---- */
 /* Announcement bar [vci-announcement="bar"] inside the sticky nav: --announcement-height = its height (the nav's negative sticky top), removed with 0 when empty. */
 (function () {
@@ -1167,7 +1167,7 @@
       var count = dd.querySelector('[vci-filters="count"]');
       if (!count) return;
       var n = dd.querySelectorAll('input:checked').length;
-      count.textContent = n;
+      if (count.textContent !== String(n)) count.textContent = n; // only on change, or the observer below loops
       count.classList.toggle('is-empty', !n);
       dd.querySelector('.w-dropdown-toggle').classList.toggle('is-active', !!n);
     });

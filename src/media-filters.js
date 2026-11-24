@@ -9,7 +9,7 @@
       var count = dd.querySelector('[vci-filters="count"]');
       if (!count) return;
       var n = dd.querySelectorAll('input:checked').length;
-      count.textContent = n;
+      if (count.textContent !== String(n)) count.textContent = n; // only on change, or the observer below loops
       count.classList.toggle('is-empty', !n);
       dd.querySelector('.w-dropdown-toggle').classList.toggle('is-active', !!n);
     });
