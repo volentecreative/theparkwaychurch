@@ -1,4 +1,4 @@
-/*! The Parkway Church site code v0.9.38. Built from src/, do not edit. */
+/*! The Parkway Church site code v0.9.39. Built from src/, do not edit. */
 /* ---- src/announcement.js ---- */
 /* Announcement bar [vci-announcement="bar"] inside the sticky nav: --announcement-height = its height (the nav's negative sticky top), removed with 0 when empty. */
 (function () {
@@ -1153,6 +1153,33 @@
       box.scrollTop += a.getBoundingClientRect().top - box.getBoundingClientRect().top - (box.clientHeight - a.offsetHeight) / 2;
     }
   });
+})();
+
+/* ---- src/media-filters.js ---- */
+/* Finsweet filter bar: [vci-filters="count"] shows how many options are checked in its dropdown (toggle gets .is-active);
+   [vci-filters="active"] (Finsweet tags + Clear all) is .is-empty while no filter is applied. Runs once Finsweet List is ready. */
+(function () {
+  var row = document.querySelector('[vci-filters="active"]');
+  var form = row && row.closest('[fs-list-element="filters"]');
+  if (!form) return;
+  function update() {
+    Array.prototype.forEach.call(form.querySelectorAll('.w-dropdown'), function (dd) {
+      var count = dd.querySelector('[vci-filters="count"]');
+      if (!count) return;
+      var n = dd.querySelectorAll('input:checked').length;
+      count.textContent = n;
+      count.classList.toggle('is-empty', !n);
+      dd.querySelector('.w-dropdown-toggle').classList.toggle('is-active', !!n);
+    });
+    row.classList.toggle('is-empty', !row.querySelector('[fs-list-element="tag-remove"]'));
+  }
+  window.FinsweetAttributes = window.FinsweetAttributes || [];
+  window.FinsweetAttributes.push(['list', function () {
+    form.addEventListener('change', update);
+    form.addEventListener('input', update);
+    new MutationObserver(update).observe(row, { childList: true, subtree: true });
+    update();
+  }]);
 })();
 
 /* ---- src/hover-highlight.js ---- */
