@@ -1,4 +1,4 @@
-/*! The Parkway Church site code v0.9.45. Built from src/, do not edit. */
+/*! The Parkway Church site code v0.9.46. Built from src/, do not edit. */
 /* ---- src/announcement.js ---- */
 /* Announcement bar [vci-announcement="bar"] inside the sticky nav: --announcement-height = its height (the nav's negative sticky top), removed with 0 when empty. */
 (function () {
@@ -1105,12 +1105,13 @@
         b.classList.toggle('is-active', on);
         b.setAttribute('aria-pressed', on);
       });
-      video.style.display = listen ? 'none' : '';
-      audio.style.display = listen ? '' : 'none';
+      video.classList.toggle('is-hidden', listen);
+      audio.classList.toggle('is-hidden', !listen);
       if (listen) frame.removeAttribute('src'); // stops the video
       else { audio.pause(); if (!frame.getAttribute('src')) frame.setAttribute('src', src); }
     };
     set('watch');
+    mode.classList.add('is-ready'); // hidden in the Designer until this runs; without it video and audio both show
     mode.addEventListener('click', function (e) {
       var b = e.target.closest('[vci-media-mode]');
       if (b) set(b.getAttribute('vci-media-mode'));
@@ -1133,9 +1134,6 @@
     if (dot && dot.textContent.trim() === '·') dot.remove();
     el.remove();
   });
-
-  var docs = root.querySelector('.media-item_documents');
-  if (docs && !docs.querySelector('.w-dyn-item')) docs.remove();
 
   // Speaker
   var speaker = q('speaker');
@@ -1189,14 +1187,13 @@
 
 /* ---- src/connected-dropdown.js ---- */
 /* [vci-dropdown="connected"]: an open Webflow dropdown draws its toggle and list as one shape, like the nav pill.
-   The list keeps its own offset below the toggle (the same gap as between toggles), and the concave corner runs around
-   the neighbouring pill at that gap, so spacing stays even. Opening grows the panel out of the toggle; closing shrinks it
-   back. Wrapper, toggle and list get .is-connected (style panel); the shape takes the list's background, border, radius
-   and shadow. */
+   The list keeps its own offset below the toggle (the same gap as between toggles) and the concave corner runs around
+   the neighbouring pill at that gap, so spacing stays even. Opening grows the panel out of the toggle; closing shrinks
+   it back. All looks are in the Designer: the [vci-dropdown="shape"] SVG (fill + line paths) and the .is-connected
+   combos on wrapper, toggle and list. This only writes the outline and the clip. No script: stock floating dropdown. */
 (function () {
   var dds = document.querySelectorAll('[vci-dropdown="connected"]');
   if (!dds.length || !window.MutationObserver) return;
-  var NS = 'http://www.w3.org/2000/svg';
   var reduce = matchMedia('(prefers-reduced-motion: reduce)');
   var SLIDE = 0.22; // seconds to settle, same feel as the nav
   var f2 = function (n) { return n.toFixed(2); };
@@ -1205,22 +1202,10 @@
   Array.prototype.forEach.call(dds, function (dd) {
     var toggle = dd.querySelector('.w-dropdown-toggle');
     var list = dd.querySelector('.w-dropdown-list');
-    if (!toggle || !list) return;
-    var cs = getComputedStyle(list);
-    var radius = parseFloat(cs.borderBottomLeftRadius) || 20;
-    var shadow = cs.boxShadow.match(/(rgba?\([^)]*\)|#\w+)\s+(-?[\d.]+)px\s+(-?[\d.]+)px\s+([\d.]+)px/);
-
-    var svg = document.createElementNS(NS, 'svg');
-    var path = document.createElementNS(NS, 'path');
-    svg.setAttribute('aria-hidden', 'true');
-    svg.style.cssText = 'position:absolute;left:0;top:0;overflow:visible;pointer-events:none;z-index:-1';
-    if (shadow) svg.style.filter = 'drop-shadow(' + shadow[2] + 'px ' + shadow[3] + 'px ' + shadow[4] / 2 + 'px ' + shadow[1] + ')';
-    path.setAttribute('fill', cs.backgroundColor);
-    path.setAttribute('stroke', cs.borderTopColor);
-    path.setAttribute('stroke-width', parseFloat(cs.borderTopWidth) || 0);
-    svg.appendChild(path);
-    dd.insertBefore(svg, dd.firstChild);
-
+    var svg = dd.querySelector('[vci-dropdown="shape"]');
+    if (!toggle || !list || !svg) return;
+    var paths = svg.querySelectorAll('path');
+    var radius = parseFloat(getComputedStyle(list).borderBottomLeftRadius) || 20;
     var open = false, h = 0, target = 0, full = 0, raf = 0, last = 0;
 
     function connect(on) {
@@ -1228,24 +1213,25 @@
     }
 
     function draw() {
-      if (h < 0.5) { path.setAttribute('d', ''); return; }
-      var tw = toggle.offsetWidth, th = toggle.offsetHeight, tr = th / 2;
-      var gap = Math.max(0, list.offsetTop - th) * Math.min(1, h / radius); // eases in so the neck doesn't pop
-      var py = th + gap; // panel top
-      var cx = tw + gap + tr; // centre of the neighbour pill's corner; the concave corner keeps `gap` from it
-      var R = Math.min(radius, h / 2);
-      var pw = Math.max(list.offsetWidth, cx + R);
-      var y1 = py + h;
-      path.setAttribute('d',
-        'M' + f2(tr) + ' 0 L' + f2(tw - tr) + ' 0' + arc(tr, 1, tw, tr) +
-        arc(tr + gap, 0, cx, py) +
-        ' L' + f2(pw - R) + ' ' + f2(py) + arc(R, 1, pw, py + R) +
-        ' L' + f2(pw) + ' ' + f2(y1 - R) + arc(R, 1, pw - R, y1) +
-        ' L' + f2(R) + ' ' + f2(y1) + arc(R, 1, 0, y1 - R) +
-        ' L0 ' + f2(tr) + arc(tr, 1, tr, 0) + ' Z');
-      svg.setAttribute('width', pw);
-      svg.setAttribute('height', y1);
-      list.style.clipPath = h < full - 0.5 ? 'inset(0 0 ' + f2(full - h) + 'px 0)' : '';
+      var d = '';
+      if (h >= 0.5) {
+        var tw = toggle.offsetWidth, th = toggle.offsetHeight, tr = th / 2;
+        var gap = Math.max(0, list.offsetTop - th) * Math.min(1, h / radius); // eases in so the neck doesn't pop
+        var py = th + gap; // panel top
+        var cx = tw + gap + tr; // centre of the neighbour pill's corner: the concave corner keeps `gap` from it
+        var R = Math.min(radius, h / 2);
+        var pw = Math.max(list.offsetWidth, cx + R);
+        var y1 = py + h;
+        d = 'M' + f2(tr) + ' 0 L' + f2(tw - tr) + ' 0' + arc(tr, 1, tw, tr) + arc(tr + gap, 0, cx, py) +
+          ' L' + f2(pw - R) + ' ' + f2(py) + arc(R, 1, pw, py + R) +
+          ' L' + f2(pw) + ' ' + f2(y1 - R) + arc(R, 1, pw - R, y1) +
+          ' L' + f2(R) + ' ' + f2(y1) + arc(R, 1, 0, y1 - R) +
+          ' L0 ' + f2(tr) + arc(tr, 1, tr, 0) + ' Z';
+        svg.setAttribute('width', pw);
+        svg.setAttribute('height', y1);
+      }
+      Array.prototype.forEach.call(paths, function (p) { p.setAttribute('d', d); });
+      list.style.clipPath = h >= 0.5 && h < full - 0.5 ? 'inset(0 0 ' + f2(full - h) + 'px 0)' : '';
     }
 
     function tick(now) {
@@ -1256,15 +1242,10 @@
       draw();
       if (h !== target) { raf = requestAnimationFrame(tick); return; }
       raf = 0;
-      if (!open) { // fully closed: hand the toggle back to its own styles
-        list.style.display = list.style.clipPath = '';
+      if (!open) { // fully closed: hand everything back to its own styles
+        list.style.display = '';
         connect(false);
       }
-    }
-
-    function run() {
-      last = performance.now();
-      if (!raf) raf = requestAnimationFrame(tick);
     }
 
     function sync() {
@@ -1279,11 +1260,64 @@
         list.style.display = 'block'; // Webflow hides it at once; keep it while it shrinks
         target = 0;
       }
-      run();
+      last = performance.now();
+      if (!raf) raf = requestAnimationFrame(tick);
     }
 
     new MutationObserver(sync).observe(toggle, { attributes: true, attributeFilter: ['class'] });
     addEventListener('resize', function () { if (open) { full = target = h = list.offsetHeight; draw(); } });
+  });
+})();
+
+/* ---- src/fluid-scroll.js ---- */
+/* Fluid Functionalism scrollbar for [vci-scroll="area"]: a thin thumb ([vci-scroll="thumb"] in the sibling
+   [vci-scroll="track"]) that rests narrow and faint, widens on hover (.is-hover) and darkens while dragged
+   (.is-dragging). Looks are in the Designer; .is-custom-scroll hides the native bar and .is-scrollable shows the
+   track. Touch screens and no-script keep native scrolling. */
+(function () {
+  if (matchMedia('(pointer: coarse)').matches) return;
+  Array.prototype.forEach.call(document.querySelectorAll('[vci-scroll="area"]'), function (area) {
+    var track = area.parentElement.querySelector('[vci-scroll="track"]');
+    var thumb = track && track.querySelector('[vci-scroll="thumb"]');
+    if (!thumb) return;
+    area.classList.add('is-custom-scroll');
+    var drag = null;
+
+    function update() {
+      var max = area.scrollHeight - area.clientHeight;
+      track.classList.toggle('is-scrollable', max > 1);
+      if (max <= 1) return;
+      var th = track.clientHeight;
+      var size = Math.max(24, th * area.clientHeight / area.scrollHeight);
+      thumb.style.height = size + 'px';
+      thumb.style.transform = 'translateY(' + (th - size) * area.scrollTop / max + 'px)';
+    }
+
+    area.addEventListener('scroll', update, { passive: true });
+    if (window.ResizeObserver) new ResizeObserver(update).observe(area); // also fires when the dropdown opens
+    track.addEventListener('pointerenter', function () { thumb.classList.add('is-hover'); });
+    track.addEventListener('pointerleave', function () { if (!drag) thumb.classList.remove('is-hover'); });
+    track.addEventListener('pointerdown', function (e) {
+      e.preventDefault();
+      var r = thumb.getBoundingClientRect();
+      var ratio = (area.scrollHeight - area.clientHeight) / (track.clientHeight - r.height);
+      if (e.target !== thumb) area.scrollTop += (e.clientY - (r.top + r.height / 2)) * ratio; // jump the thumb to the click
+      drag = { y: e.clientY, top: area.scrollTop, ratio: ratio };
+      track.setPointerCapture(e.pointerId);
+      thumb.classList.add('is-dragging');
+    });
+    track.addEventListener('pointermove', function (e) {
+      if (drag) area.scrollTop = drag.top + (e.clientY - drag.y) * drag.ratio;
+    });
+    function end(e) {
+      if (!drag) return;
+      drag = null;
+      thumb.classList.remove('is-dragging');
+      if (!track.matches(':hover')) thumb.classList.remove('is-hover');
+    }
+    track.addEventListener('pointerup', end);
+    track.addEventListener('pointercancel', end);
+    update();
   });
 })();
 

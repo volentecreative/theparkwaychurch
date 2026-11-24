@@ -24,12 +24,13 @@
         b.classList.toggle('is-active', on);
         b.setAttribute('aria-pressed', on);
       });
-      video.style.display = listen ? 'none' : '';
-      audio.style.display = listen ? '' : 'none';
+      video.classList.toggle('is-hidden', listen);
+      audio.classList.toggle('is-hidden', !listen);
       if (listen) frame.removeAttribute('src'); // stops the video
       else { audio.pause(); if (!frame.getAttribute('src')) frame.setAttribute('src', src); }
     };
     set('watch');
+    mode.classList.add('is-ready'); // hidden in the Designer until this runs; without it video and audio both show
     mode.addEventListener('click', function (e) {
       var b = e.target.closest('[vci-media-mode]');
       if (b) set(b.getAttribute('vci-media-mode'));
@@ -52,9 +53,6 @@
     if (dot && dot.textContent.trim() === '·') dot.remove();
     el.remove();
   });
-
-  var docs = root.querySelector('.media-item_documents');
-  if (docs && !docs.querySelector('.w-dyn-item')) docs.remove();
 
   // Speaker
   var speaker = q('speaker');
