@@ -5,8 +5,9 @@
    video, figures and buttons. Each fades in and rises 1rem into place, once, the first time it
    scrolls into view. Elements that come into view together follow each other in reading order.
    A card moves as one piece, with everything inside it: every Collection List item
-   (.w-dyn-item), and any element with a card class (sermons_card, articles_card,
-   partners_logo-card...). For a hand-built card with another class name, add vci-reveal to it.
+   (.w-dyn-item), any Client-First list item (home-about_item, events_item...) and any element
+   with a card class (sermons_card, partners_logo-card...). For a hand-built card with another
+   class name, add vci-reveal to it.
    The motion (curve, distance, no replay) is the same everywhere; only timing can be tuned.
 
    Tune it (on the element or any ancestor, so one attribute on a section covers all of it):
@@ -31,7 +32,7 @@
 
   // Matches come back in document order, so a card is always seen before its contents, which are
   // then skipped as nested: the card moves as one piece.
-  var CARDS = '.w-dyn-item,[class$="_card"],[class*="_card "],[class*="-card"]';
+  var CARDS = '.w-dyn-item,[class$="_card"],[class*="_card "],[class*="-card"],[class$="_item"],[class*="_item "]';
   var DEFAULTS = CARDS + ',h1,h2,h3,h4,h5,h6,p,blockquote,img,picture,video,figure,.button,.w-button';
   var SKIP = 'nav,header,[role="dialog"],.w-nav,.w-dropdown,.nav_component,.text-style-script,[data-w-id]';
   var EASE = 'cubic-bezier(.2,.7,.2,1)', RISE = '0 1rem', STAGGER = 70, MAX_STAGGER = 5;
