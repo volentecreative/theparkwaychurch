@@ -28,8 +28,8 @@
 
   var DEFAULTS = 'h1,h2,h3,h4,h5,h6,p,blockquote,img,picture,video,figure,.button,.w-button';
   var SKIP = 'nav,header,[role="dialog"],.w-nav,.w-dropdown,.nav_component,.text-style-script,[data-w-id]';
-  var EASE = 'cubic-bezier(.2,.7,.2,1)', RISE = '0 1rem', STAGGER = 70, MAX_STAGGER = 5;
-  var DURATION = 600;
+  var EASE = 'cubic-bezier(.16,1,.3,1)', RISE = '0 1rem', STAGGER = 70, MAX_STAGGER = 5;
+  var DURATION = 900; // long, soft settle at the end (expo-out)
 
   function off(el) {
     var o = el.closest('[vci-reveal]');
