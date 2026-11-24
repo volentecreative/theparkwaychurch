@@ -1,4 +1,4 @@
-/*! The Parkway Church site code v0.9.47. Built from src/, do not edit. */
+/*! The Parkway Church site code v0.9.48. Built from src/, do not edit. */
 /* ---- src/announcement.js ---- */
 /* Announcement bar [vci-announcement="bar"] inside the sticky nav: --announcement-height = its height (the nav's negative sticky top), removed with 0 when empty. */
 (function () {
@@ -1260,6 +1260,7 @@
         full = target = list.offsetHeight;
       } else {
         list.style.display = 'block'; // Webflow hides it at once; keep it while it shrinks
+        list.style.clipPath = 'inset(0 0 0px 0)'; // clipped from this very frame, never shown bare without w--open
         target = 0;
       }
       last = performance.now();

@@ -72,6 +72,7 @@
         full = target = list.offsetHeight;
       } else {
         list.style.display = 'block'; // Webflow hides it at once; keep it while it shrinks
+        list.style.clipPath = 'inset(0 0 0px 0)'; // clipped from this very frame, never shown bare without w--open
         target = 0;
       }
       last = performance.now();
