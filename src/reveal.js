@@ -10,7 +10,7 @@
      vci-reveal="false"     no entrance
      vci-reveal             opt in any other element (a card, a list item...)
      vci-reveal-delay       ms before it starts (default 0)
-     vci-reveal-duration    ms (default 900)
+     vci-reveal-duration    ms (default 600)
    Or from a combo class in the style panel, with custom properties (inherited the same way):
      --reveal-delay: 200    --reveal-duration: 900
    An attribute wins over a custom property.
@@ -28,8 +28,8 @@
 
   var DEFAULTS = 'h1,h2,h3,h4,h5,h6,p,blockquote,img,picture,video,figure,.button,.w-button';
   var SKIP = 'nav,header,[role="dialog"],.w-nav,.w-dropdown,.nav_component,.text-style-script,[data-w-id]';
-  var EASE = 'cubic-bezier(.16,1,.3,1)', RISE = '0 1rem', STAGGER = 70, MAX_STAGGER = 5;
-  var DURATION = 900; // long, soft settle at the end (expo-out)
+  var EASE = 'cubic-bezier(.2,.7,.2,1)', RISE = '0 1rem', STAGGER = 70, MAX_STAGGER = 5;
+  var DURATION = 600;
 
   function off(el) {
     var o = el.closest('[vci-reveal]');

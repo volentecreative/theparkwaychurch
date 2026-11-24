@@ -1,4 +1,4 @@
-/*! The Parkway Church site code v0.9.14. Built from src/, do not edit. */
+/*! The Parkway Church site code v0.9.15. Built from src/, do not edit. */
 /* ---- src/buttons.js ---- */
 /* Arch button morph, and the nav pill shape that follows it.
  * Why custom code: the hover morph tweens an SVG path "d" attribute, which the style
@@ -1224,7 +1224,7 @@ window.__scriptDrawPaths = {"Winter":{"width":0.0802,"paths":[{"d":"M.065-.190C.
       span = Math.max(span, from[i] + len[i]);
     });
     var dur = setting(host, 'duration', 1800), STEPS = 48;
-    var ease = function (t) { return 0.5 - 0.5 * Math.cos(Math.PI * t); }; // gentle in and out
+    var ease = function (t) { return 1 - Math.pow(1 - t, 3); }; // quick start, long soft finish (cubic out)
     var anims = strokes.map(function (path, i) {
       var L = len[i];
       // One dash the length of the stroke, then a longer gap; offset just past the dash so
@@ -1283,7 +1283,7 @@ window.__scriptDrawPaths = {"Winter":{"width":0.0802,"paths":[{"d":"M.065-.190C.
      vci-reveal="false"     no entrance
      vci-reveal             opt in any other element (a card, a list item...)
      vci-reveal-delay       ms before it starts (default 0)
-     vci-reveal-duration    ms (default 900)
+     vci-reveal-duration    ms (default 600)
    Or from a combo class in the style panel, with custom properties (inherited the same way):
      --reveal-delay: 200    --reveal-duration: 900
    An attribute wins over a custom property.
@@ -1301,8 +1301,8 @@ window.__scriptDrawPaths = {"Winter":{"width":0.0802,"paths":[{"d":"M.065-.190C.
 
   var DEFAULTS = 'h1,h2,h3,h4,h5,h6,p,blockquote,img,picture,video,figure,.button,.w-button';
   var SKIP = 'nav,header,[role="dialog"],.w-nav,.w-dropdown,.nav_component,.text-style-script,[data-w-id]';
-  var EASE = 'cubic-bezier(.16,1,.3,1)', RISE = '0 1rem', STAGGER = 70, MAX_STAGGER = 5;
-  var DURATION = 900; // long, soft settle at the end (expo-out)
+  var EASE = 'cubic-bezier(.2,.7,.2,1)', RISE = '0 1rem', STAGGER = 70, MAX_STAGGER = 5;
+  var DURATION = 600;
 
   function off(el) {
     var o = el.closest('[vci-reveal]');

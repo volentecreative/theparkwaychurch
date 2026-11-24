@@ -98,7 +98,7 @@
       span = Math.max(span, from[i] + len[i]);
     });
     var dur = setting(host, 'duration', 1800), STEPS = 48;
-    var ease = function (t) { return 0.5 - 0.5 * Math.cos(Math.PI * t); }; // gentle in and out
+    var ease = function (t) { return 1 - Math.pow(1 - t, 3); }; // quick start, long soft finish (cubic out)
     var anims = strokes.map(function (path, i) {
       var L = len[i];
       // One dash the length of the stroke, then a longer gap; offset just past the dash so
