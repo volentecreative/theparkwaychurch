@@ -1,4 +1,4 @@
-/*! The Parkway Church site code v0.9.46. Built from src/, do not edit. */
+/*! The Parkway Church site code v0.9.47. Built from src/, do not edit. */
 /* ---- src/announcement.js ---- */
 /* Announcement bar [vci-announcement="bar"] inside the sticky nav: --announcement-height = its height (the nav's negative sticky top), removed with 0 when empty. */
 (function () {
@@ -1231,7 +1231,8 @@
         svg.setAttribute('height', y1);
       }
       Array.prototype.forEach.call(paths, function (p) { p.setAttribute('d', d); });
-      list.style.clipPath = h >= 0.5 && h < full - 0.5 ? 'inset(0 0 ' + f2(full - h) + 'px 0)' : '';
+      // Clipped on every frame it is shorter than full, right down to 0; only a finished close (below) unclips it.
+      list.style.clipPath = h < full - 0.5 ? 'inset(0 0 ' + f2(full - h) + 'px 0)' : '';
     }
 
     function tick(now) {
@@ -1242,8 +1243,9 @@
       draw();
       if (h !== target) { raf = requestAnimationFrame(tick); return; }
       raf = 0;
-      if (!open) { // fully closed: hand everything back to its own styles
-        list.style.display = '';
+      if (!open) { // fully closed: hand everything back to its own styles, all in this one step
+        list.style.removeProperty('display');
+        list.style.removeProperty('clip-path');
         connect(false);
       }
     }
