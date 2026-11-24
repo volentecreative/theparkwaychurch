@@ -16,6 +16,7 @@
     var y = Math.min(Math.max(scrollY, 0), document.documentElement.scrollHeight - innerHeight);
     var d = y - last;
     last = y;
+    if (Math.abs(d) > innerHeight) { travel = 0; return; } // restored scroll or #hash jump: leave the header showing
     travel = d * travel > 0 ? travel + d : d;
     if (y < nav.offsetHeight) hide(false);
     else if (travel > 6) hide(true);
