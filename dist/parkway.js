@@ -1,4 +1,4 @@
-/*! The Parkway Church site code v0.9.59. Built from src/, do not edit. */
+/*! The Parkway Church site code v0.9.60. Built from src/, do not edit. */
 /* ---- src/announcement.js ---- */
 /* Announcement bar [vci-announcement="bar"] inside the sticky nav: --announcement-height = its height (the nav's negative sticky top), removed with 0 when empty. */
 (function () {
@@ -1245,7 +1245,8 @@
    When the filters change, every dropdown that isn't open opens next time scrolled to the top: Finsweet's empty facets
    re-sort its options, so an old scroll position would land somewhere arbitrary. The open one keeps its place while
    you pick in it. (A closed list is display:none and can't be scrolled, so the reset waits until it opens.)
-   The active-filter tags row needs nothing here: Finsweet only puts it in the page while a filter is applied. */
+   The active-filter tags row needs nothing here: Finsweet only puts it in the page while a filter is applied.
+   Empty facets are held back until every item has loaded (see settle below). */
 (function () {
   var form = document.querySelector('[fs-list-element="filters"]');
   if (!form || !form.querySelector('[vci-filters="count"]')) return;
@@ -1299,8 +1300,9 @@
       return (s || label).textContent.trim().toLowerCase();
     };
     var usable = function (label) {
-      return row(label).style.display !== 'none' && !row(label).classList.contains('is-list-emptyfacet') &&
-        !label.classList.contains('is-list-emptyfacet');
+      if (row(label).style.display === 'none') return false;
+      if (form.classList.contains('is-loading')) return true; // facets aren't final yet, so nothing looks grayed
+      return !row(label).classList.contains('is-list-emptyfacet') && !label.classList.contains('is-list-emptyfacet');
     };
     function apply() {
       var q = input.value.trim().toLowerCase(), shown = 0;
@@ -1332,10 +1334,35 @@
     }).observe(toggle, { attributes: true, attributeFilter: ['class'] });
   });
 
+  // Empty facets settle once. Finsweet loads every page of media in the background (one to several seconds) and
+  // re-works out which options are empty from whatever has arrived, so without this they gray and jump to the
+  // bottom one by one while it loads. The form carries .is-loading in the Designer, which keeps the empty-facet look
+  // switched off. Each option's facet is its own async job that re-runs whenever the items change and writes its count
+  // into the option's [fs-list-element="facet-count"] span when it finishes. Once the last page has landed, those jobs
+  // run back to back (a few ms apart), so the class comes off when the counts have gone quiet for QUIET ms after
+  // loading. If the script never runs, nothing grays, and every option stays clickable.
+  var QUIET = 150;
+  function settle(l) {
+    var loaded = false, timer;
+    var done = function () { observer.disconnect(); clearTimeout(timer); form.classList.remove('is-loading'); };
+    var wait = function () { clearTimeout(timer); timer = setTimeout(done, QUIET); };
+    var observer = new MutationObserver(function (records) {
+      if (!loaded) return;
+      for (var i = 0; i < records.length; i++) {
+        var el = records[i].target.nodeType === 3 ? records[i].target.parentElement : records[i].target;
+        if (el && el.closest && el.closest('[fs-list-element="facet-count"]')) return wait();
+      }
+    });
+    observer.observe(form, { subtree: true, childList: true, characterData: true });
+    if (!l.loadingPaginatedItems) return done();
+    l.loadingPaginatedItems.then(function () { loaded = true; wait(); });
+  }
+
   window.FinsweetAttributes = window.FinsweetAttributes || [];
   window.FinsweetAttributes.push(['list', function (lists) {
     // Runs after every filter pass, including tag removal and Clear all.
     (lists || []).forEach(function (l) { if (l.addHook) l.addHook('filter', function (items) { setTimeout(update); return items; }); });
+    if (lists && lists[0]) settle(lists[0]); else form.classList.remove('is-loading');
     form.addEventListener('change', update);
     update();
   }]);
