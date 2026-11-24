@@ -1,4 +1,4 @@
-/*! The Parkway Church site code v0.9.49. Built from src/, do not edit. */
+/*! The Parkway Church site code v0.9.50. Built from src/, do not edit. */
 /* ---- src/announcement.js ---- */
 /* Announcement bar [vci-announcement="bar"] inside the sticky nav: --announcement-height = its height (the nav's negative sticky top), removed with 0 when empty. */
 (function () {
@@ -1237,6 +1237,7 @@
     if (!toggle || !list || !svg) return;
     var paths = svg.querySelectorAll('path');
     var radius = parseFloat(getComputedStyle(list).borderBottomLeftRadius) || 20;
+    var stroke = parseFloat(getComputedStyle(paths[paths.length - 1]).strokeWidth) || 0; // the line path is last
     var open = false, connected = false, p = 0, from = 0, to = 0, start = 0, raf = 0;
 
     function connect(on) {
@@ -1259,20 +1260,24 @@
       var py = th + gap, y1 = py + H; // panel top and bottom
       var full = Math.max(lw, tw + gap + tr + radius);
       var W = tw + (full - tw) * wp;
-      var d = 'M' + f2(tr) + ' 0 L' + f2(tw - tr) + ' 0' + arc(tr, 1, tw, tr);
+      // The shape is the outer edge of the border box. The path runs half a stroke inside it, so the line covers the
+      // same pixels as the toggle's own CSS border: o insets every edge, convex radii shrink by o, the concave one grows.
+      var o = stroke / 2;
+      var r = function (n) { return Math.max(0, n - o); };
+      var d = 'M' + f2(tr) + ' ' + f2(o) + ' L' + f2(tw - tr) + ' ' + f2(o) + arc(r(tr), 1, tw - o, tr);
       var Rl = Math.min(Math.max(radius, tr), y1 - tr, tw / 2); // bottom-left; exactly tr when folded, so it rests as the pill
       if (W - tw < 0.5) { // one column, the toggle's width
         W = tw;
-        d += ' L' + f2(tw) + ' ' + f2(y1 - Rl) + arc(Rl, 1, tw - Rl, y1);
+        d += ' L' + f2(tw - o) + ' ' + f2(y1 - Rl) + arc(r(Rl), 1, tw - Rl, y1 - o);
       } else {
         var k = Math.min(py - tr, (W - tw) / 2); // concave corner around the neighbouring pill
-        var Rt = Math.min(radius, W - tw - k, H / 2);
-        var Rr = Math.min(radius, H - Rt);
-        d += ' L' + f2(tw) + ' ' + f2(py - k) + arc(k, 0, tw + k, py) +
-          ' L' + f2(W - Rt) + ' ' + f2(py) + arc(Rt, 1, W, py + Rt) +
-          ' L' + f2(W) + ' ' + f2(y1 - Rr) + arc(Rr, 1, W - Rr, y1);
+        var Rt = Math.max(o, Math.min(radius, W - tw - k, H / 2));
+        var Rr = Math.max(o, Math.min(radius, H - Rt));
+        d += ' L' + f2(tw - o) + ' ' + f2(py - k) + arc(k + o, 0, tw + k, py + o) +
+          ' L' + f2(W - Rt) + ' ' + f2(py + o) + arc(r(Rt), 1, W - o, py + Rt) +
+          ' L' + f2(W - o) + ' ' + f2(y1 - Rr) + arc(r(Rr), 1, W - Rr, y1 - o);
       }
-      d += ' L' + f2(Rl) + ' ' + f2(y1) + arc(Rl, 1, 0, y1 - Rl) + ' L0 ' + f2(tr) + arc(tr, 1, tr, 0) + ' Z';
+      d += ' L' + f2(Rl) + ' ' + f2(y1 - o) + arc(r(Rl), 1, o, y1 - Rl) + ' L' + f2(o) + ' ' + f2(tr) + arc(r(tr), 1, tr, o) + ' Z';
       setPaths(d);
       svg.setAttribute('width', f2(W));
       svg.setAttribute('height', f2(y1));
