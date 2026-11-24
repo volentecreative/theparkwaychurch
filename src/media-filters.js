@@ -1,26 +1,23 @@
-/* Finsweet filter bar: [vci-filters="count"] shows how many options are checked in its dropdown (toggle gets .is-active);
-   [vci-filters="active"] (Finsweet tags + Clear all) is .is-empty while no filter is applied. Runs once Finsweet List is ready. */
+/* Finsweet filter bar: [vci-filters="count"] shows how many options are checked in its dropdown (its toggle gets .is-active).
+   The active-filter tags row needs nothing here: Finsweet only puts it in the page while a filter is applied. */
 (function () {
-  var row = document.querySelector('[vci-filters="active"]');
-  var form = row && row.closest('[fs-list-element="filters"]');
-  if (!form) return;
+  var form = document.querySelector('[fs-list-element="filters"]');
+  if (!form || !form.querySelector('[vci-filters="count"]')) return;
   function update() {
     Array.prototype.forEach.call(form.querySelectorAll('.w-dropdown'), function (dd) {
       var count = dd.querySelector('[vci-filters="count"]');
       if (!count) return;
       var n = dd.querySelectorAll('input:checked').length;
-      if (count.textContent !== String(n)) count.textContent = n; // only on change, or the observer below loops
+      if (count.textContent !== String(n)) count.textContent = n;
       count.classList.toggle('is-empty', !n);
       dd.querySelector('.w-dropdown-toggle').classList.toggle('is-active', !!n);
     });
-    var active = form.querySelector('[vci-filters="active"]'); // Finsweet re-renders this row, so look it up each time
-    if (active) active.classList.toggle('is-empty', !active.querySelector('[fs-list-element="tag-remove"]'));
   }
   window.FinsweetAttributes = window.FinsweetAttributes || [];
-  window.FinsweetAttributes.push(['list', function () {
+  window.FinsweetAttributes.push(['list', function (lists) {
+    // Runs after every filter pass, including tag removal and Clear all.
+    (lists || []).forEach(function (l) { if (l.addHook) l.addHook('filter', function (items) { setTimeout(update); return items; }); });
     form.addEventListener('change', update);
-    form.addEventListener('input', update);
-    new MutationObserver(update).observe(form, { childList: true, subtree: true });
     update();
   }]);
 })();
