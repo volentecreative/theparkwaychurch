@@ -7,6 +7,9 @@
    used as a mask over the real lettering and drawn on stroke by stroke, so the word is revealed
    as if written with a pen. The final frame is exactly the real text, which then takes over.
 
+   Held invisible from before the first paint by script-draw-early.js (head), so the Designer text
+   doesn't flash before this deferred script runs.
+
    Applies to .text-style-script (or any element with vci-draw) whose text has a generated pen
    line; anything else simply shows. Plays once, the first time it scrolls into view. Skipped for
    reduced motion, and for lettering that wraps or contains other elements.
@@ -117,6 +120,7 @@
   }
 
   function init() {
+    window.__scriptDrawReady = true; // the head part (script-draw-early.js) leaves the rest to us
     var els = document.querySelectorAll('.text-style-script, [vci-draw]:not([vci-draw="false"])');
     if (!els.length) return;
     var io = new IntersectionObserver(function (entries) {
@@ -127,8 +131,10 @@
       });
     }, { threshold: 0.6 });
     Array.prototype.forEach.call(els, function (host) {
+      if (host.__draw) return;
+      if (host.__held) host.style.color = ''; // held by the head part: read the real color first
       var data = pathsFor(host);
-      if (!data || host.__draw) return;
+      if (!data) return; // nothing to write on: it just shows
       host.__draw = data;
       host.__color = getComputedStyle(host).color;
       host.style.color = 'transparent'; // hidden until it writes on; layout untouched
