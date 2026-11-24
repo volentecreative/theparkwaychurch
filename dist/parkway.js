@@ -1,4 +1,4 @@
-/*! The Parkway Church site code v0.9.48. Built from src/, do not edit. */
+/*! The Parkway Church site code v0.9.49. Built from src/, do not edit. */
 /* ---- src/announcement.js ---- */
 /* Announcement bar [vci-announcement="bar"] inside the sticky nav: --announcement-height = its height (the nav's negative sticky top), removed with 0 when empty. */
 (function () {
@@ -1162,12 +1162,26 @@
 
 /* ---- src/media-filters.js ---- */
 /* Finsweet filter bar: [vci-filters="count"] shows how many options are checked in its dropdown (its toggle gets .is-active).
+   When the filters change, every dropdown that isn't open opens next time scrolled to the top: Finsweet's empty facets
+   re-sort its options, so an old scroll position would land somewhere arbitrary. The open one keeps its place while
+   you pick in it. (A closed list is display:none and can't be scrolled, so the reset waits until it opens.)
    The active-filter tags row needs nothing here: Finsweet only puts it in the page while a filter is applied. */
 (function () {
   var form = document.querySelector('[fs-list-element="filters"]');
   if (!form || !form.querySelector('[vci-filters="count"]')) return;
+  var dds = Array.prototype.slice.call(form.querySelectorAll('.w-dropdown'));
+  var stale = [];
+  var last = null;
+
+  function isOpen(dd) { return !!dd.querySelector('.w-dropdown-toggle.w--open'); }
+
   function update() {
-    Array.prototype.forEach.call(form.querySelectorAll('.w-dropdown'), function (dd) {
+    var now = Array.prototype.map.call(form.querySelectorAll('input:checked'), function (i) {
+      return i.name + '=' + (i.getAttribute('fs-list-value') || i.value);
+    }).join('|');
+    if (last !== null && now !== last) dds.forEach(function (dd, i) { if (!isOpen(dd)) stale[i] = true; });
+    last = now;
+    dds.forEach(function (dd) {
       var count = dd.querySelector('[vci-filters="count"]');
       if (!count) return;
       var n = dd.querySelectorAll('input:checked').length;
@@ -1176,6 +1190,16 @@
       dd.querySelector('.w-dropdown-toggle').classList.toggle('is-active', !!n);
     });
   }
+
+  dds.forEach(function (dd, i) {
+    var toggle = dd.querySelector('.w-dropdown-toggle');
+    var area = dd.querySelector('[vci-scroll="area"]');
+    if (!toggle || !area) return;
+    new MutationObserver(function () {
+      if (stale[i] && isOpen(dd)) { area.scrollTop = 0; stale[i] = false; }
+    }).observe(toggle, { attributes: true, attributeFilter: ['class'] });
+  });
+
   window.FinsweetAttributes = window.FinsweetAttributes || [];
   window.FinsweetAttributes.push(['list', function (lists) {
     // Runs after every filter pass, including tag removal and Clear all.
@@ -1188,16 +1212,23 @@
 /* ---- src/connected-dropdown.js ---- */
 /* [vci-dropdown="connected"]: an open Webflow dropdown draws its toggle and list as one shape, like the nav pill.
    The list keeps its own offset below the toggle (the same gap as between toggles) and the concave corner runs around
-   the neighbouring pill at that gap, so spacing stays even. Opening grows the panel out of the toggle; closing shrinks
-   it back. All looks are in the Designer: the [vci-dropdown="shape"] SVG (fill + line paths) and the .is-connected
-   combos on wrapper, toggle and list. This only writes the outline and the clip. No script: stock floating dropdown. */
+   the neighbouring pill at that gap, so spacing stays even. Opening drops the panel straight down out of the toggle at
+   the toggle's width, then widens it; closing folds it back the same way until it is just the toggle again.
+   The outline is never empty while the toggle is connected (at rest it is exactly the toggle's pill), so the swap
+   between the toggle's own border and the drawn line happens in one frame and can't blink. It is redrawn whenever the
+   toggle or list changes size, e.g. a filter count appearing or options hiding. All looks are in the Designer: the [vci-dropdown="shape"] SVG
+   (fill + line paths) and the .is-connected combos on wrapper, toggle and list. This only writes the outline and the
+   clip. No script: stock floating dropdown. */
 (function () {
   var dds = document.querySelectorAll('[vci-dropdown="connected"]');
   if (!dds.length || !window.MutationObserver) return;
   var reduce = matchMedia('(prefers-reduced-motion: reduce)');
-  var SLIDE = 0.22; // seconds to settle, same feel as the nav
+  var DURATION = 0.34; // seconds for a full open or close
+  var LEAD = 0.65; // share of the motion spent dropping down; widening overlaps the rest
   var f2 = function (n) { return n.toFixed(2); };
   var arc = function (r, sweep, x, y) { return ' A' + f2(r) + ' ' + f2(r) + ' 0 0 ' + sweep + ' ' + f2(x) + ' ' + f2(y); };
+  var clamp = function (n) { return Math.min(1, Math.max(0, n)); };
+  var ease = function (t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(2 - 2 * t, 3) / 2; };
 
   Array.prototype.forEach.call(dds, function (dd) {
     var toggle = dd.querySelector('.w-dropdown-toggle');
@@ -1206,47 +1237,62 @@
     if (!toggle || !list || !svg) return;
     var paths = svg.querySelectorAll('path');
     var radius = parseFloat(getComputedStyle(list).borderBottomLeftRadius) || 20;
-    var open = false, h = 0, target = 0, full = 0, raf = 0, last = 0;
+    var open = false, connected = false, p = 0, from = 0, to = 0, start = 0, raf = 0;
 
     function connect(on) {
+      connected = on;
       [dd, toggle, list].forEach(function (el) { el.classList.toggle('is-connected', on); });
     }
 
+    function setPaths(d) {
+      Array.prototype.forEach.call(paths, function (path) { path.setAttribute('d', d); });
+    }
+
+    // p runs 0 (just the toggle) to 1 (fully open). Height leads, width follows.
     function draw() {
-      var d = '';
-      if (h >= 0.5) {
-        var tw = toggle.offsetWidth, th = toggle.offsetHeight, tr = th / 2;
-        var gap = Math.max(0, list.offsetTop - th) * Math.min(1, h / radius); // eases in so the neck doesn't pop
-        var py = th + gap; // panel top
-        var cx = tw + gap + tr; // centre of the neighbour pill's corner: the concave corner keeps `gap` from it
-        var R = Math.min(radius, h / 2);
-        var pw = Math.max(list.offsetWidth, cx + R);
-        var y1 = py + h;
-        d = 'M' + f2(tr) + ' 0 L' + f2(tw - tr) + ' 0' + arc(tr, 1, tw, tr) + arc(tr + gap, 0, cx, py) +
-          ' L' + f2(pw - R) + ' ' + f2(py) + arc(R, 1, pw, py + R) +
-          ' L' + f2(pw) + ' ' + f2(y1 - R) + arc(R, 1, pw - R, y1) +
-          ' L' + f2(R) + ' ' + f2(y1) + arc(R, 1, 0, y1 - R) +
-          ' L0 ' + f2(tr) + arc(tr, 1, tr, 0) + ' Z';
-        svg.setAttribute('width', pw);
-        svg.setAttribute('height', y1);
+      if (!connected) return;
+      var tw = toggle.offsetWidth, th = toggle.offsetHeight, tr = th / 2;
+      var lw = list.offsetWidth, lh = list.offsetHeight, top = list.offsetTop;
+      var hp = clamp(p / LEAD), wp = clamp((p - (1 - LEAD)) / LEAD);
+      var H = lh * hp;
+      var gap = Math.max(0, top - th) * Math.min(1, H / radius); // eases in so the neck doesn't pop
+      var py = th + gap, y1 = py + H; // panel top and bottom
+      var full = Math.max(lw, tw + gap + tr + radius);
+      var W = tw + (full - tw) * wp;
+      var d = 'M' + f2(tr) + ' 0 L' + f2(tw - tr) + ' 0' + arc(tr, 1, tw, tr);
+      var Rl = Math.min(Math.max(radius, tr), y1 - tr, tw / 2); // bottom-left; exactly tr when folded, so it rests as the pill
+      if (W - tw < 0.5) { // one column, the toggle's width
+        W = tw;
+        d += ' L' + f2(tw) + ' ' + f2(y1 - Rl) + arc(Rl, 1, tw - Rl, y1);
+      } else {
+        var k = Math.min(py - tr, (W - tw) / 2); // concave corner around the neighbouring pill
+        var Rt = Math.min(radius, W - tw - k, H / 2);
+        var Rr = Math.min(radius, H - Rt);
+        d += ' L' + f2(tw) + ' ' + f2(py - k) + arc(k, 0, tw + k, py) +
+          ' L' + f2(W - Rt) + ' ' + f2(py) + arc(Rt, 1, W, py + Rt) +
+          ' L' + f2(W) + ' ' + f2(y1 - Rr) + arc(Rr, 1, W - Rr, y1);
       }
-      Array.prototype.forEach.call(paths, function (p) { p.setAttribute('d', d); });
-      // Clipped on every frame it is shorter than full, right down to 0; only a finished close (below) unclips it.
-      list.style.clipPath = h < full - 0.5 ? 'inset(0 0 ' + f2(full - h) + 'px 0)' : '';
+      d += ' L' + f2(Rl) + ' ' + f2(y1) + arc(Rl, 1, 0, y1 - Rl) + ' L0 ' + f2(tr) + arc(tr, 1, tr, 0) + ' Z';
+      setPaths(d);
+      svg.setAttribute('width', f2(W));
+      svg.setAttribute('height', f2(y1));
+      // The list's own box sits at `top`; show only the part inside the panel.
+      list.style.clipPath = p >= 1 ? '' :
+        'inset(0 ' + f2(Math.max(0, lw - W)) + 'px ' + f2(clamp((top + lh - y1) / lh) * lh) + 'px 0)';
     }
 
     function tick(now) {
-      var a = reduce.matches ? 1 : 1 - Math.exp(-((now - last) / 1000) / (SLIDE / 4));
-      last = now;
-      h += (target - h) * a;
-      if (Math.abs(target - h) < 0.3) h = target;
+      var span = DURATION * 1000 * Math.abs(to - from);
+      var t = reduce.matches || !span ? 1 : clamp((now - start) / span);
+      p = from + (to - from) * ease(t);
       draw();
-      if (h !== target) { raf = requestAnimationFrame(tick); return; }
+      if (t < 1) { raf = requestAnimationFrame(tick); return; }
       raf = 0;
-      if (!open) { // fully closed: hand everything back to its own styles, all in this one step
+      if (!open) { // folded back into the toggle: hand everything back to its own styles, all in this one step
         list.style.removeProperty('display');
         list.style.removeProperty('clip-path');
         connect(false);
+        setPaths('');
       }
     }
 
@@ -1256,19 +1302,22 @@
       open = on;
       if (on) {
         list.style.display = '';
-        connect(true);
-        full = target = list.offsetHeight;
+        if (!connected) connect(true);
       } else {
-        list.style.display = 'block'; // Webflow hides it at once; keep it while it shrinks
-        list.style.clipPath = 'inset(0 0 0px 0)'; // clipped from this very frame, never shown bare without w--open
-        target = 0;
+        list.style.display = 'block'; // Webflow hides it at once; keep it while it folds
       }
-      last = performance.now();
+      from = p; to = on ? 1 : 0; start = performance.now();
+      draw(); // this same frame: the outline is in place before the toggle's own border goes
       if (!raf) raf = requestAnimationFrame(tick);
     }
 
     new MutationObserver(sync).observe(toggle, { attributes: true, attributeFilter: ['class'] });
-    addEventListener('resize', function () { if (open) { full = target = h = list.offsetHeight; draw(); } });
+    if (window.ResizeObserver) { // a filter count appearing on the toggle, options hiding as other filters change
+      var ro = new ResizeObserver(draw);
+      ro.observe(toggle);
+      ro.observe(list);
+    }
+    addEventListener('resize', draw);
   });
 })();
 
