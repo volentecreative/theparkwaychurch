@@ -3,7 +3,11 @@
   var nav = document.querySelector('.nav_component');
   if (!nav) return;
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) nav.style.transition = 'none';
-  var last = 0, travel = 0;
+  var last = 0, travel = 0, user = false;
+  // Scrolls before the visitor does anything (restored position, back/forward, #hash) never hide it.
+  ['wheel', 'touchstart', 'keydown', 'pointerdown'].forEach(function (t) {
+    addEventListener(t, function () { user = true; }, { once: true, passive: true });
+  });
   function hide(on) {
     if (on === nav.classList.contains('is-hidden')) return;
     nav.classList.toggle('is-hidden', on);
@@ -16,7 +20,7 @@
     var y = Math.min(Math.max(scrollY, 0), document.documentElement.scrollHeight - innerHeight);
     var d = y - last;
     last = y;
-    if (Math.abs(d) > innerHeight) { travel = 0; return; } // restored scroll or #hash jump: leave the header showing
+    if (!user || Math.abs(d) > innerHeight) { travel = 0; return; }
     travel = d * travel > 0 ? travel + d : d;
     if (y < nav.offsetHeight) hide(false);
     else if (travel > 6) hide(true);
