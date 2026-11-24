@@ -1,4 +1,4 @@
-/*! The Parkway Church site code v0.9.56. Built from src/, do not edit. */
+/*! The Parkway Church site code v0.9.57. Built from src/, do not edit. */
 /* ---- src/announcement.js ---- */
 /* Announcement bar [vci-announcement="bar"] inside the sticky nav: --announcement-height = its height (the nav's negative sticky top), removed with 0 when empty. */
 (function () {
@@ -220,7 +220,7 @@
 })();
 
 /* ---- src/nav-scroll.js ---- */
-/* Sticky header: .is-hidden slides it up while scrolling down, off again scrolling up, at the top, or on focus. Closes open dropdowns as it hides. */
+/* Sticky header: .is-hidden slides it up while scrolling down, off again scrolling up, at the top, on focus, or (desktop) when the pointer rests where it sits. Closes open dropdowns as it hides. */
 (function () {
   var nav = document.querySelector('.nav_component');
   if (!nav) return;
@@ -249,6 +249,34 @@
     else if (travel < -6) hide(false);
   }, { passive: true });
   nav.addEventListener('focusin', function () { hide(false); });
+
+  // Desktop: resting the pointer where the hidden header sits brings it back; it stays until the next scroll down.
+  // Only a deliberate pause counts: not mid-scroll, no button held, not over something clickable, nothing modal open,
+  // and passing through on the way to the browser's tabs or address bar is too quick to trigger it.
+  if (!matchMedia('(hover: hover) and (pointer: fine)').matches) return;
+  var DWELL = 200, QUIET = 350, MARGIN = 16, scrolled = 0, timer = 0, px = 0, py = 0;
+  var CLICKABLE = 'a, button, input, select, textarea, label, summary, iframe, video, [role="button"], [tabindex]:not([tabindex="-1"])';
+  addEventListener('scroll', function () { scrolled = performance.now(); cancel(); }, { passive: true });
+  function cancel() { clearTimeout(timer); timer = 0; }
+  function zone() { // where the header sits when shown, plus a margin, whatever its hide transform is doing now
+    var t = getComputedStyle(nav).transform, shift = t && t !== 'none' ? new DOMMatrix(t).m42 : 0;
+    return nav.getBoundingClientRect().bottom - shift + MARGIN;
+  }
+  function ready(e) {
+    if (!nav.classList.contains('is-hidden') || e.buttons || py > zone()) return false;
+    if (performance.now() - scrolled < QUIET || document.body.style.overflow === 'hidden') return false;
+    if (String(getSelection()).length) return false; // selecting text
+    var under = document.elementFromPoint(px, py);
+    return !(under && !nav.contains(under) && under.closest(CLICKABLE));
+  }
+  addEventListener('pointermove', function (e) {
+    if (e.pointerType !== 'mouse') return;
+    px = e.clientX; py = e.clientY;
+    if (!ready(e)) { cancel(); return; }
+    if (!timer) timer = setTimeout(function () { timer = 0; if (ready({ buttons: 0 })) hide(false); }, DWELL);
+  }, { passive: true });
+  document.addEventListener('mouseout', function (e) { if (!e.relatedTarget) cancel(); }); // left the window
+  addEventListener('pointerdown', cancel, { passive: true });
 })();
 
 /* ---- src/nav-toggle.js ---- */
