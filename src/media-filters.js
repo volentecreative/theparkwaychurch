@@ -13,13 +13,14 @@
       count.classList.toggle('is-empty', !n);
       dd.querySelector('.w-dropdown-toggle').classList.toggle('is-active', !!n);
     });
-    row.classList.toggle('is-empty', !row.querySelector('[fs-list-element="tag-remove"]'));
+    var active = form.querySelector('[vci-filters="active"]'); // Finsweet re-renders this row, so look it up each time
+    if (active) active.classList.toggle('is-empty', !active.querySelector('[fs-list-element="tag-remove"]'));
   }
   window.FinsweetAttributes = window.FinsweetAttributes || [];
   window.FinsweetAttributes.push(['list', function () {
     form.addEventListener('change', update);
     form.addEventListener('input', update);
-    new MutationObserver(update).observe(row, { childList: true, subtree: true });
+    new MutationObserver(update).observe(form, { childList: true, subtree: true });
     update();
   }]);
 })();
