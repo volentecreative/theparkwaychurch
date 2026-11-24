@@ -1,4 +1,4 @@
-/*! The Parkway Church site code v0.9.37. Built from src/, do not edit. */
+/*! The Parkway Church site code v0.9.38. Built from src/, do not edit. */
 /* ---- src/announcement.js ---- */
 /* Announcement bar [vci-announcement="bar"] inside the sticky nav: --announcement-height = its height (the nav's negative sticky top), removed with 0 when empty. */
 (function () {
@@ -1126,6 +1126,9 @@
   });
   var more = q('series-link');
   if (more && name) more.setAttribute('href', filter('series', name));
+
+  var docs = root.querySelector('.media-item_documents');
+  if (docs && !docs.querySelector('.w-dyn-item')) docs.remove();
 
   // Speaker
   var speaker = q('speaker');

@@ -46,6 +46,9 @@
   var more = q('series-link');
   if (more && name) more.setAttribute('href', filter('series', name));
 
+  var docs = root.querySelector('.media-item_documents');
+  if (docs && !docs.querySelector('.w-dyn-item')) docs.remove();
+
   // Speaker
   var speaker = q('speaker');
   if (speaker) {
