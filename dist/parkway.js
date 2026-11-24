@@ -1,4 +1,4 @@
-/*! The Parkway Church site code v0.9.17. Built from src/, do not edit. */
+/*! The Parkway Church site code v0.9.18. Built from src/, do not edit. */
 /* ---- src/buttons.js ---- */
 /* Arch button morph, and the nav pill shape that follows it.
  * Why custom code: the hover morph tweens an SVG path "d" attribute, which the style
@@ -1079,6 +1079,79 @@
   else start();
 })();
 
+/* ---- src/accordion-highlight.js ---- */
+/* Accordion hover highlight, the same gliding highlight as the nav. Why custom code: CSS can't
+   move one shared element to whichever row is hovered.
+
+   Built in Webflow: an .accordion_highlight element whose parent also contains the accordion
+   rows (inside the accordion_list component, or in an .accordion_frame wrapped around a CMS
+   accordion, whose list can't hold extra elements). All of its look (tint, rounding, the
+   sideways bleed, stacking, fade and glide timing) is the style panel:
+     .accordion_highlight             hidden (opacity 0), positioned at the parent's top left
+     .accordion_highlight.is-active   shown
+     .accordion_highlight.is-instant  jump without gliding (a fresh appearance fades in where it is)
+   This only sizes and places it over the hovered (or keyboard-focused) question, which is each
+   row's .accordion_toggle. Mouse and trackpad only, as on the nav; touch keeps the plain rows.
+   No .accordion_highlight in Webflow: nothing happens. */
+(function () {
+  var hls = document.querySelectorAll('.accordion_highlight');
+  if (!hls.length) return;
+  var fine = window.matchMedia && matchMedia('(hover: hover) and (pointer: fine)');
+  var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)');
+
+  Array.prototype.forEach.call(hls, function (hl) {
+    var frame = hl.parentElement;
+    var toggles = Array.prototype.slice.call(frame.querySelectorAll('.accordion_toggle'));
+    if (!toggles.length) return;
+    var lit = null, over = null, leaveTimer = 0;
+
+    function place(t, glide) {
+      var r = t.getBoundingClientRect(), f = frame.getBoundingClientRect();
+      if (glide !== null) hl.classList.toggle('is-instant', !glide || !!(reduce && reduce.matches));
+      hl.style.width = r.width + 'px';
+      hl.style.height = r.height + 'px';
+      hl.style.transform = 'translate(' + (r.left - f.left - frame.clientLeft) + 'px,' +
+        (r.top - f.top - frame.clientTop) + 'px)';
+    }
+    function update() {
+      var t = over;
+      if (t === lit) { if (t) place(t, null); return; }
+      var fresh = !lit;
+      lit = t;
+      if (!t) { hl.classList.remove('is-active'); return; }
+      place(t, !fresh);
+      hl.classList.add('is-active');
+    }
+    function enter(t) { clearTimeout(leaveTimer); over = t; update(); }
+    // Leaving waits a beat, so moving straight onto the next question glides instead of re-fading.
+    function leave(t) {
+      if (over !== t) return;
+      clearTimeout(leaveTimer);
+      leaveTimer = setTimeout(function () { if (over === t) over = null; update(); }, 60);
+    }
+
+    toggles.forEach(function (t) {
+      t.addEventListener('pointerenter', function (e) {
+        if (e.pointerType === 'mouse' || (fine && fine.matches)) enter(t);
+      });
+      t.addEventListener('pointerleave', function () { leave(t); });
+      t.addEventListener('focusin', function () {
+        if (t.matches(':focus-visible') || t.querySelector(':focus-visible')) enter(t);
+      });
+      t.addEventListener('focusout', function () { leave(t); });
+    });
+    // Rows above move while an answer opens or closes, and on resize: follow the lit row.
+    var raf = 0;
+    function follow() {
+      cancelAnimationFrame(raf);
+      var until = Date.now() + 600;
+      (function tick() { if (lit) place(lit, null); if (Date.now() < until) raf = requestAnimationFrame(tick); })();
+    }
+    frame.addEventListener('click', follow);
+    addEventListener('resize', function () { if (lit) place(lit, null); });
+  });
+})();
+
 /* ---- src/seasons.js ---- */
 /* Current season name. Why custom code: Webflow can't pick content by today's date on a static
    page (CMS date filters are worked out at publish time, so they'd go stale between publishes).
@@ -1144,6 +1217,7 @@
                                                   combos is-past, is-today and is-month-start.
            [vci-calendar="day-month"]             kept only on the first day shown and on 1sts
            [vci-calendar="day-number"]
+           [vci-calendar="day-holiday"]           kept only on holidays (list below), with its name
            [vci-calendar="day-dot"]               kept only on days with events (the phone view)
            [vci-calendar="day-events"]
              [vci-calendar="chip"]                ONE event chip, copied per event that day
@@ -1194,6 +1268,42 @@
 
   var comp = document.querySelector('[vci-calendar="component"]');
   if (!comp) return;
+
+  // Holidays shown on the calendar: the big Christian days and the main national ones. Worked
+  // out for any year, so there's nothing to update. Halloween is left out; Oct 31 is
+  // Reformation Day.
+  var holidayCache = {};
+  function nth(y, m, wd, n) { // n-th weekday (0 = Sun) of a month; n = -1 for the last one
+    if (n > 0) { var f = new Date(y, m, 1); return dkey(new Date(y, m, 1 + (wd - f.getDay() + 7) % 7 + (n - 1) * 7)); }
+    var l = new Date(y, m + 1, 0); return dkey(new Date(y, m, l.getDate() - (l.getDay() - wd + 7) % 7));
+  }
+  function easter(y) { // Anonymous Gregorian algorithm
+    var a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4;
+    var f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30;
+    var i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7;
+    var m = Math.floor((a + 11 * h + 22 * l) / 451), mo = Math.floor((h + l - 7 * m + 114) / 31);
+    return new Date(y, mo - 1, (h + l - 7 * m + 114) % 31 + 1);
+  }
+  function holidays(y) {
+    if (holidayCache[y]) return holidayCache[y];
+    var e = easter(y), h = {};
+    h[key(y, 0, 1)] = "New Year's Day";
+    h[key(y, 1, 14)] = "Valentine's Day";
+    h[dkey(addDays(e, -7))] = 'Palm Sunday';
+    h[dkey(addDays(e, -2))] = 'Good Friday';
+    h[dkey(e)] = 'Easter Sunday';
+    h[dkey(addDays(e, 49))] = 'Pentecost';
+    h[nth(y, 4, 0, 2)] = "Mother's Day";
+    h[nth(y, 4, 1, -1)] = 'Memorial Day';
+    h[nth(y, 5, 0, 3)] = "Father's Day";
+    h[key(y, 6, 4)] = 'Independence Day';
+    h[nth(y, 8, 1, 1)] = 'Labor Day';
+    h[key(y, 9, 31)] = 'Reformation Day';
+    h[nth(y, 10, 4, 4)] = 'Thanksgiving';
+    h[key(y, 11, 24)] = 'Christmas Eve';
+    h[key(y, 11, 25)] = 'Christmas Day';
+    return (holidayCache[y] = h);
+  }
   var grid = q(comp, 'grid'), dayTpl = grid && q(grid, 'day');
   if (!dayTpl) return;
   var chipTpl = q(dayTpl, 'chip');
@@ -1271,6 +1381,8 @@
       if (i === 0 || date.getDate() === 1) fill(cell, 'day-month', monthName(date));
       else drop(cell, 'day-month');
       fill(cell, 'day-number', String(date.getDate()));
+      var holiday = holidays(date.getFullYear())[k];
+      if (holiday) fill(cell, 'day-holiday', holiday); else drop(cell, 'day-holiday');
       var dot = q(cell, 'day-dot');
       if (dot) { if (list.length) dot.setAttribute('aria-hidden', 'true'); else drop(cell, 'day-dot'); }
       var holder = q(cell, 'day-events');
@@ -1286,7 +1398,8 @@
         // The whole day opens its first event: on phones the chips are hidden and only the dot shows.
         cell.setAttribute('role', 'button');
         cell.setAttribute('tabindex', '0');
-        cell.setAttribute('aria-label', (dayFmt ? dayFmt.format(date) : date.toDateString()) + ': ' +
+        cell.setAttribute('aria-label', (dayFmt ? dayFmt.format(date) : date.toDateString()) +
+          (holiday ? ', ' + holiday : '') + ': ' +
           list.map(function (ev) { return ev.title; }).join(', '));
         (function (ev) {
           cell.addEventListener('click', function () { show(ev); });

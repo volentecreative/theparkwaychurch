@@ -24,6 +24,7 @@
                                                   combos is-past, is-today and is-month-start.
            [vci-calendar="day-month"]             kept only on the first day shown and on 1sts
            [vci-calendar="day-number"]
+           [vci-calendar="day-holiday"]           kept only on holidays (list below), with its name
            [vci-calendar="day-dot"]               kept only on days with events (the phone view)
            [vci-calendar="day-events"]
              [vci-calendar="chip"]                ONE event chip, copied per event that day
@@ -74,6 +75,42 @@
 
   var comp = document.querySelector('[vci-calendar="component"]');
   if (!comp) return;
+
+  // Holidays shown on the calendar: the big Christian days and the main national ones. Worked
+  // out for any year, so there's nothing to update. Halloween is left out; Oct 31 is
+  // Reformation Day.
+  var holidayCache = {};
+  function nth(y, m, wd, n) { // n-th weekday (0 = Sun) of a month; n = -1 for the last one
+    if (n > 0) { var f = new Date(y, m, 1); return dkey(new Date(y, m, 1 + (wd - f.getDay() + 7) % 7 + (n - 1) * 7)); }
+    var l = new Date(y, m + 1, 0); return dkey(new Date(y, m, l.getDate() - (l.getDay() - wd + 7) % 7));
+  }
+  function easter(y) { // Anonymous Gregorian algorithm
+    var a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4;
+    var f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30;
+    var i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7;
+    var m = Math.floor((a + 11 * h + 22 * l) / 451), mo = Math.floor((h + l - 7 * m + 114) / 31);
+    return new Date(y, mo - 1, (h + l - 7 * m + 114) % 31 + 1);
+  }
+  function holidays(y) {
+    if (holidayCache[y]) return holidayCache[y];
+    var e = easter(y), h = {};
+    h[key(y, 0, 1)] = "New Year's Day";
+    h[key(y, 1, 14)] = "Valentine's Day";
+    h[dkey(addDays(e, -7))] = 'Palm Sunday';
+    h[dkey(addDays(e, -2))] = 'Good Friday';
+    h[dkey(e)] = 'Easter Sunday';
+    h[dkey(addDays(e, 49))] = 'Pentecost';
+    h[nth(y, 4, 0, 2)] = "Mother's Day";
+    h[nth(y, 4, 1, -1)] = 'Memorial Day';
+    h[nth(y, 5, 0, 3)] = "Father's Day";
+    h[key(y, 6, 4)] = 'Independence Day';
+    h[nth(y, 8, 1, 1)] = 'Labor Day';
+    h[key(y, 9, 31)] = 'Reformation Day';
+    h[nth(y, 10, 4, 4)] = 'Thanksgiving';
+    h[key(y, 11, 24)] = 'Christmas Eve';
+    h[key(y, 11, 25)] = 'Christmas Day';
+    return (holidayCache[y] = h);
+  }
   var grid = q(comp, 'grid'), dayTpl = grid && q(grid, 'day');
   if (!dayTpl) return;
   var chipTpl = q(dayTpl, 'chip');
@@ -151,6 +188,8 @@
       if (i === 0 || date.getDate() === 1) fill(cell, 'day-month', monthName(date));
       else drop(cell, 'day-month');
       fill(cell, 'day-number', String(date.getDate()));
+      var holiday = holidays(date.getFullYear())[k];
+      if (holiday) fill(cell, 'day-holiday', holiday); else drop(cell, 'day-holiday');
       var dot = q(cell, 'day-dot');
       if (dot) { if (list.length) dot.setAttribute('aria-hidden', 'true'); else drop(cell, 'day-dot'); }
       var holder = q(cell, 'day-events');
@@ -166,7 +205,8 @@
         // The whole day opens its first event: on phones the chips are hidden and only the dot shows.
         cell.setAttribute('role', 'button');
         cell.setAttribute('tabindex', '0');
-        cell.setAttribute('aria-label', (dayFmt ? dayFmt.format(date) : date.toDateString()) + ': ' +
+        cell.setAttribute('aria-label', (dayFmt ? dayFmt.format(date) : date.toDateString()) +
+          (holiday ? ', ' + holiday : '') + ': ' +
           list.map(function (ev) { return ev.title; }).join(', '));
         (function (ev) {
           cell.addEventListener('click', function () { show(ev); });

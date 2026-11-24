@@ -14,6 +14,7 @@ measurements and mobile menu) still comes from
 | `src/nav-toggle.js` | Mirrors the hamburger's `is-open` onto its lines, so the X is styled in the panel. |
 | `src/reveal.js` | Default scroll entrance for headings, text, images and buttons. |
 | `src/nav-dropdown.js` | Connected nav dropdowns (see below). |
+| `src/accordion-highlight.js` | Gliding hover highlight on accordion questions, same as the nav's (see below). |
 | `src/seasons.js` | Swaps `vci-season="name"` text for the current season, from the Seasons CMS collection. |
 | `src/events-calendar.js` | Month calendar on /events, built from the Events Collection List (see below). |
 | `src/script-draw.js` | Trim-path write-on for `.text-style-script` lettering. |
@@ -32,13 +33,13 @@ Source is ES5-compatible browser JS, because nothing transpiles it.
 Head code:
 
 ```html
-<script src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.9.17/dist/parkway-head.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.9.18/dist/parkway-head.min.js"></script>
 ```
 
 Footer code, alongside the narthex nav tag:
 
 ```html
-<script defer src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.9.17/dist/parkway.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.9.18/dist/parkway.min.js"></script>
 ```
 
 jsDelivr minifies on request when the URL ends in `.min.js`, and only serves
@@ -190,6 +191,16 @@ provider-specific on the page: whatever is in the collection is what shows.
 - Events that have already ended are hidden everywhere; Coming up hides itself when nothing
   featured is left.
 - Cards show **Body** (rich text, links kept), not the plain Description.
+- Holidays are named on their day (`events-calendar_day-holiday`, hidden on phones): New Year's
+  Day, Valentine's Day, Palm Sunday, Good Friday, Easter, Pentecost, Mother's Day, Memorial Day,
+  Father's Day, Independence Day, Labor Day, Reformation Day, Thanksgiving, Christmas Eve and
+  Christmas Day. Worked out per year in `src/events-calendar.js` (Easter by the Gregorian
+  computus); edit the list there.
+- The season script heading ("Fall at Parkway") sits above Coming up, fed by its own hidden
+  Seasons list, as on Home.
+- Subscribe buttons in the hero: Google Calendar (`calendar.google.com/calendar/render?cid=` +
+  the webcal feed) and Apple & Outlook (the `webcal://` feed). Both are the full CCB calendar,
+  weekly gatherings included.
 
 Built in Webflow: one `events-calendar_day` (with `events-calendar_day-head` > `_day-month` +
 `_day-number`) and one `events-calendar_event` chip inside the grid, which
@@ -200,6 +211,17 @@ Built in Webflow: one `events-calendar_day` (with `events-calendar_day-head` > `
 
 Set **Featured** in the CMS; the sync never changes it. Events can also be typed into the CMS by
 hand: leave **Event ID** empty and the sync never touches them.
+
+## Accordion highlight
+
+The nav's gliding hover highlight, on accordion questions. An `.accordion_highlight` element sits
+in the same parent as the rows: inside the `accordion_list` component, or in an `.accordion_frame`
+wrapped around a CMS accordion (a Collection List can't hold extra elements; see /sundays FAQ).
+Its look is all style panel (brand-100 tint, 1rem radius, a 1rem sideways bleed drawn with two
+box-shadows, z-index -1, the nav's fade and glide timing); `.is-active` shows it, `.is-instant`
+jumps without gliding. `src/accordion-highlight.js` only sizes and places it over the hovered or
+keyboard-focused `.accordion_toggle`, and follows it while answers open and close. Mouse and
+trackpad only.
 
 ## Calendar events sync
 
