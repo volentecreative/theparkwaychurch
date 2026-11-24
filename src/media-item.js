@@ -46,6 +46,13 @@
   var more = q('series-link');
   if (more && name) more.setAttribute('href', filter('series', name));
 
+  // Meta line "passage · date": drop empty parts and the dot next to them (classes have no passage).
+  Array.prototype.forEach.call(root.querySelectorAll('.content_card-meta > .w-dyn-bind-empty'), function (el) {
+    var dot = el.nextElementSibling || el.previousElementSibling;
+    if (dot && dot.textContent.trim() === '·') dot.remove();
+    el.remove();
+  });
+
   var docs = root.querySelector('.media-item_documents');
   if (docs && !docs.querySelector('.w-dyn-item')) docs.remove();
 
