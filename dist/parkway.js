@@ -1,4 +1,4 @@
-/*! The Parkway Church site code v0.9.22. Built from src/, do not edit. */
+/*! The Parkway Church site code v0.9.23. Built from src/, do not edit. */
 /* ---- src/buttons.js ---- */
 /* Arch button morph, and the nav pill shape that follows it.
  * Why custom code: the hover morph tweens an SVG path "d" attribute, which the style
@@ -1648,9 +1648,12 @@ window.__scriptDrawPaths = {"Winter":{"width":0.0802,"paths":[{"d":"M.065-.190C.
 /* Scroll entrance animations. Why custom code: Webflow interactions have to be added element by
    element; this gives every core element one consistent entrance by default.
 
-   What animates by default (inside <main>): headings, paragraphs, blockquotes, images, video,
-   figures and buttons. Each fades in and rises 1rem into place, once, the first time it scrolls
-   into view. Elements that come into view together follow each other in reading order.
+   What animates by default (inside <main>): cards, headings, paragraphs, blockquotes, images,
+   video, figures and buttons. Each fades in and rises 1rem into place, once, the first time it
+   scrolls into view. Elements that come into view together follow each other in reading order.
+   A card moves as one piece, with everything inside it: every Collection List item
+   (.w-dyn-item), and any element with a card class (sermons_card, articles_card,
+   partners_logo-card...). For a hand-built card with another class name, add vci-reveal to it.
    The motion (curve, distance, no replay) is the same everywhere; only timing can be tuned.
 
    Tune it (on the element or any ancestor, so one attribute on a section covers all of it):
@@ -1673,7 +1676,10 @@ window.__scriptDrawPaths = {"Winter":{"width":0.0802,"paths":[{"d":"M.065-.190C.
   if (!window.IntersectionObserver || !Element.prototype.animate) return;
   if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
-  var DEFAULTS = 'h1,h2,h3,h4,h5,h6,p,blockquote,img,picture,video,figure,.button,.w-button';
+  // Matches come back in document order, so a card is always seen before its contents, which are
+  // then skipped as nested: the card moves as one piece.
+  var CARDS = '.w-dyn-item,[class$="_card"],[class*="_card "],[class*="-card"]';
+  var DEFAULTS = CARDS + ',h1,h2,h3,h4,h5,h6,p,blockquote,img,picture,video,figure,.button,.w-button';
   var SKIP = 'nav,header,[role="dialog"],.w-nav,.w-dropdown,.nav_component,.text-style-script,[data-w-id]';
   var EASE = 'cubic-bezier(.2,.7,.2,1)', RISE = '0 1rem', STAGGER = 70, MAX_STAGGER = 5;
   var DURATION = 600;
