@@ -33,13 +33,13 @@ Source is ES5-compatible browser JS, because nothing transpiles it.
 Head code:
 
 ```html
-<script src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.9.20/dist/parkway-head.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.9.21/dist/parkway-head.min.js"></script>
 ```
 
 Footer code, alongside the narthex nav tag:
 
 ```html
-<script defer src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.9.20/dist/parkway.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.9.21/dist/parkway.min.js"></script>
 ```
 
 jsDelivr minifies on request when the URL ends in `.min.js`, and only serves
@@ -221,7 +221,8 @@ Its look is all style panel (brand-100 tint, 1rem radius, a 1rem sideways bleed 
 box-shadows, z-index -1, the nav's fade and glide timing); `.is-active` shows it, `.is-instant`
 jumps without gliding. `src/accordion-highlight.js` only sizes and places it over the hovered or
 keyboard-focused row (the whole `.accordion_item`, so an open one is covered question and answer
-together), and follows it while answers open and close. Mouse and
+together). While an answer opens or closes it tracks the row frame by frame (glide off), so it
+moves at the accordion's own speed and curve. Mouse and
 trackpad only.
 
 ## Calendar events sync

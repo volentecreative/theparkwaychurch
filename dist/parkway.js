@@ -1,4 +1,4 @@
-/*! The Parkway Church site code v0.9.20. Built from src/, do not edit. */
+/*! The Parkway Church site code v0.9.21. Built from src/, do not edit. */
 /* ---- src/buttons.js ---- */
 /* Arch button morph, and the nav pill shape that follows it.
  * Why custom code: the hover morph tweens an SVG path "d" attribute, which the style
@@ -1143,13 +1143,24 @@
       });
       t.addEventListener('focusout', function () { leave(t); });
     });
-    // An answer opening or closing changes the lit row's height (and moves the rows below), and
-    // so does a resize: follow the lit row until it settles.
+    // An answer opening or closing changes the lit row's height (and moves the rows below). While
+    // it does, the highlight tracks the row frame by frame with its own glide switched off
+    // (is-instant), so it moves with the accordion's own speed and curve instead of chasing it on
+    // a different one. Once the row has held still for a few frames, gliding comes back.
     var raf = 0;
     function follow() {
       cancelAnimationFrame(raf);
-      var until = Date.now() + 900;
-      (function tick() { if (lit) place(lit, null); if (Date.now() < until) raf = requestAnimationFrame(tick); })();
+      var start = Date.now(), lastH = -1, still = 0;
+      (function tick() {
+        if (!lit) return;
+        hl.classList.add('is-instant');
+        place(lit, null);
+        var h = lit.getBoundingClientRect().height;
+        still = Math.abs(h - lastH) < 0.5 ? still + 1 : 0;
+        lastH = h;
+        if ((still < 4 || Date.now() - start < 120) && Date.now() - start < 2000) raf = requestAnimationFrame(tick);
+        else if (!(reduce && reduce.matches)) hl.classList.remove('is-instant');
+      })();
     }
     frame.addEventListener('click', follow);
     addEventListener('resize', function () { if (lit) place(lit, null); });
