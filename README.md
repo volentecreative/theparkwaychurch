@@ -15,6 +15,7 @@ measurements and mobile menu) still comes from
 | `src/reveal.js` | Default scroll entrance for headings, text, images and buttons. |
 | `src/nav-dropdown.js` | Connected nav dropdowns (see below). |
 | `src/accordion-highlight.js` | Gliding hover highlight on accordion questions, same as the nav's (see below). |
+| `src/form-submit.js` | Lets a button component (in `[vci-form="submit"]`) submit its form through the hidden native submit button. Used on /connect. |
 | `src/seasons.js` | Swaps `vci-season="name"` text for the current season, from the Seasons CMS collection. |
 | `src/events-calendar.js` | Month calendar on /events, built from the Events Collection List (see below). |
 | `src/script-draw.js` | Trim-path write-on for `.text-style-script` lettering. |
@@ -33,13 +34,13 @@ Source is ES5-compatible browser JS, because nothing transpiles it.
 Head code:
 
 ```html
-<script src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.9.21/dist/parkway-head.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.9.22/dist/parkway-head.min.js"></script>
 ```
 
 Footer code, alongside the narthex nav tag:
 
 ```html
-<script defer src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.9.21/dist/parkway.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.9.22/dist/parkway.min.js"></script>
 ```
 
 jsDelivr minifies on request when the URL ends in `.min.js`, and only serves
