@@ -15,11 +15,12 @@ measurements and mobile menu) still comes from
 | `src/reveal.js` | Default scroll entrance for headings, text, images and buttons. |
 | `src/nav-dropdown.js` | Connected nav dropdowns (see below). |
 | `src/seasons.js` | Swaps `vci-season="name"` text for the current season, from the Seasons CMS collection. |
+| `src/events-calendar.js` | Month calendar on /events, built from the Events Collection List (see below). |
 | `src/script-draw.js` | Trim-path write-on for `.text-style-script` lettering. |
 | `src/script-draw-paths.js` | **Generated** pen lines per word, from `scripts/trim-paths/`. |
 | `src/image-sizes-fix.js` | Sets each image's `sizes` to its rendered width. Same fix as The North Church. |
 | `src/script-draw-early.js` | Head: holds script lettering invisible from before the first paint, so the Designer text doesn't flash before the write-on. |
-| `scripts/sync-events.js` | Church calendar (CCB iCal) → Webflow CMS Events sync. Run hourly by `.github/workflows/sync-events.yml`. |
+| `scripts/sync-events.js` | Church calendar (any iCal feed; CCB today) → Webflow CMS Events sync. Run hourly by `.github/workflows/sync-events.yml`. |
 | `scripts/build.js` | Concatenates `src/` into `dist/`. No transpile, no minify. |
 | `dist/parkway.js` | **Committed.** Footer bundle: buttons, nav-scroll, nav-dropdown, in that order. |
 | `dist/parkway-head.js` | **Committed.** Head bundle: image-sizes-fix, script-draw-early. |
@@ -31,13 +32,13 @@ Source is ES5-compatible browser JS, because nothing transpiles it.
 Head code:
 
 ```html
-<script src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.9.15/dist/parkway-head.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.9.16/dist/parkway-head.min.js"></script>
 ```
 
 Footer code, alongside the narthex nav tag:
 
 ```html
-<script defer src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.9.15/dist/parkway.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.9.16/dist/parkway.min.js"></script>
 ```
 
 jsDelivr minifies on request when the URL ends in `.min.js`, and only serves
@@ -169,6 +170,29 @@ reveals).
 
 See `docs/roadmap.md` for accessibility and AI-discoverability work to pick up
 later.
+
+## Events page
+
+/events shows a month calendar above an "Upcoming events" list. Both come from one Collection
+List of the **Events** collection (sorted by Start, up to 100), so there is no embed and nothing
+provider-specific on the page: whatever is in the collection is what shows.
+
+- Desktop and tablet: a month grid. Each day lists its events as chips; choosing one scrolls to
+  that event's card in the list and outlines it for a moment (`events_item.is-highlighted`).
+- Phone (`small` breakpoint, style panel only): the same grid shrinks to a compact month with a
+  dot on days that have events (`events-calendar_day-events` hidden, `events-calendar_day-dot`
+  shown). Tapping a day jumps to its event in the list below.
+- Months run from this month to the month of the last event. Events that have already ended are
+  hidden.
+
+Built in Webflow: one `events-calendar_day` and one `events-calendar_event` chip inside the grid,
+which `src/events-calendar.js` copies for each day and event. Combos it adds:
+`events-calendar_day.is-outside` (days from the next/previous month), `.is-today`, and
+`events-calendar_nav-button.is-disabled`. Each Collection Item has `vci-calendar="event"` and the
+attributes `vci-event-start`, `vci-event-end`, `vci-event-time` bound to Start, End and Time.
+
+Events can also be typed into the CMS by hand: leave **Event ID** empty and the sync never
+touches them.
 
 ## Calendar events sync
 

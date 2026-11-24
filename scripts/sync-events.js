@@ -1,9 +1,11 @@
 // Church calendar (iCal feed) -> Webflow CMS "Events" sync. Run by .github/workflows/sync-events.yml.
 //
-// Reads the church's public iCal feed (Church Community Builder's public calendar), expands
+// Reads the church's public iCal feed (Church Community Builder's public calendar today; any
+// provider that publishes an .ics feed works: Google, Outlook, Planning Center, iCloud), expands
 // repeating events, then makes the Events collection match the upcoming events: creates new
 // ones, updates changed ones, removes past, cancelled and deleted ones, and publishes what
-// changed. Items are matched by the "Event ID" field (slug google-event-id, kept from the first
+// changed. Events typed into the CMS by hand (no Event ID) are left alone, so the site can mix
+// both. Items are matched by the "Event ID" field (slug google-event-id, kept from the first
 // version), so it is safe to run as often as you like; an unchanged calendar makes no writes.
 //
 // Env (secrets marked *):
@@ -387,10 +389,12 @@ export async function sync() {
   const events = await calendarEvents();
   const items = await webflowItems(cid);
   const byGid = new Map();
-  const strays = []; // items without an id, or duplicates: not ours to keep
+  const strays = []; // duplicates of an id: not ours to keep
+  const handmade = []; // no Event ID: added in the CMS by hand, so never touched here
   for (const it of items) {
     const gid = it.fieldData?.['google-event-id'];
-    if (!gid || byGid.has(gid)) strays.push(it); else byGid.set(gid, it);
+    if (!gid) handmade.push(it);
+    else if (byGid.has(gid)) strays.push(it); else byGid.set(gid, it);
   }
 
   const create = [], update = [];
@@ -402,9 +406,9 @@ export async function sync() {
     keep.add(item.id);
     if (differs(item, fields) || item.isDraft) update.push({ id: item.id, fields });
   }
-  const remove = items.filter((it) => !keep.has(it.id) && !strays.includes(it)).concat(strays);
+  const remove = items.filter((it) => !keep.has(it.id) && !strays.includes(it) && !handmade.includes(it)).concat(strays);
 
-  console.log(`Calendar: ${events.length} upcoming. Webflow: ${items.length} items. ` +
+  console.log(`Calendar: ${events.length} upcoming. Webflow: ${items.length} items (${handmade.length} added by hand, left alone). ` +
     `Create ${create.length}, update ${update.length}, remove ${remove.length}.`);
   for (const f of create) console.log('  + ' + f.slug + (f['google-event-id'].startsWith('demo:') ? ' (demo)' : ''));
   for (const u of update) console.log('  ~ ' + u.fields.slug);
