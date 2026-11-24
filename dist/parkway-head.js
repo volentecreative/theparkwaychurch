@@ -1,4 +1,4 @@
-/*! The Parkway Church site code v0.9.54. Built from src/, do not edit. */
+/*! The Parkway Church site code v0.9.55. Built from src/, do not edit. */
 /* ---- src/image-sizes-fix.js ---- */
 /* Head: corrects Webflow image sizes attributes before images load. */
 (function(){var d=new WeakSet(),ro='ResizeObserver'in window?new ResizeObserver(function(es){es.forEach(function(e){if(e.contentRect.width&&fix(e.target))ro.unobserve(e.target)})}):null;

@@ -59,8 +59,9 @@
   all(document, '[vci-calendar="featured"]').forEach(function (block) {
     if (!all(block, '[vci-event-start]').some(function (el) { return el.style.display !== 'none'; })) block.style.display = 'none';
   });
-  all(document, 'a[href*=".ics"]').forEach(function (a) {
-    a.setAttribute('href', a.getAttribute('href').replace(/^https?:/i, 'webcal:'));
+  all(document, 'a[href*=".ics"]').forEach(function (a) { // the feed itself, not a link that carries it (Google's cid=)
+    var href = a.getAttribute('href');
+    if (/^https?:\/\/[^?#]*\.ics(?:[?#]|$)/i.test(href)) a.setAttribute('href', href.replace(/^https?:/i, 'webcal:'));
   });
 
   // "Add to your calendar" points at Google Calendar's subscribe page (works anywhere, no script needed). Apple
