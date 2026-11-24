@@ -1,12 +1,4 @@
-/* Button component as a form's submit button. Why custom code: the site's button component is a
-   link, and a link can't submit a form; Webflow's form needs its own submit button.
-
-   In Webflow: wrap a button component in an element with vci-form="submit" inside the form, and
-   keep the form's native submit button (hidden with a class, e.g. connect_submit-native) so
-   Webflow's validation, spam check, "Sending…" state and success/error messages all still apply.
-   Clicking (or pressing Enter/Space on) the component submits the form through that native
-   button. While sending, the component's label shows the native button's waiting text
-   ("Sending…"), and goes back if Webflow shows its error message. */
+/* Button component as a form submit: [vci-form="submit"] submits through the form's hidden native submit, and shows its "Sending…" text. */
 (function () {
   Array.prototype.forEach.call(document.querySelectorAll('form [vci-form="submit"]'), function (wrap) {
     var form = wrap.closest('form');

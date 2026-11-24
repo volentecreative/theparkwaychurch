@@ -1,7 +1,4 @@
-/* Hamburger open state. narthex adds .is-open to .nav_toggle while the menu is open; the style
-   panel can't style a child from its parent's class, so mirror it onto each .nav_toggle-line.
-   The X itself is native: nav_toggle-line.is-open with first-child / nth-child(even) / last-child
-   states in the style panel. */
+/* Mobile menu toggle. */
 (function(){
   Array.prototype.forEach.call(document.querySelectorAll('.nav_toggle'), function(t){
     var lines=t.querySelectorAll('.nav_toggle-line');

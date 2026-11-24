@@ -1,5 +1,4 @@
-/* Image sizes fix (same as The North Church). Sets each img sizes to its rendered width so the browser
-   downloads the smallest srcset file that fits, cutting mobile bandwidth. Needs JS: runs before images load. */
+/* Head: corrects Webflow image sizes attributes before images load. */
 (function(){var d=new WeakSet(),ro='ResizeObserver'in window?new ResizeObserver(function(es){es.forEach(function(e){if(e.contentRect.width&&fix(e.target))ro.unobserve(e.target)})}):null;
 function need(i){var r=i.getBoundingClientRect();if(!r.width||!r.height)return 0;return Math.ceil(getComputedStyle(i).objectFit==='cover'?Math.max(r.width,r.height):r.width)}
 function fix(i){if(!i.srcset||d.has(i))return true;if(i.complete&&i.currentSrc)return true;var w=need(i);if(!w){if(ro)ro.observe(i);return false}i.sizes=w+'px';d.add(i);return true}

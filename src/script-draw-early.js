@@ -1,13 +1,4 @@
-/* Write-on, early part (head). Why custom code: the write-on script loads deferred in the footer, so
-   the browser paints the page once before it runs. Script lettering would show for that moment as
-   the text written in the Designer (e.g. a placeholder season name) in the fallback serif, before
-   the font loads and the write-on starts.
-
-   This holds that lettering transparent from the moment each element is parsed, before the first
-   paint. The footer script (script-draw.js) then takes over: it swaps in the right word, writes it
-   on, and shows straight away anything it can't write on. Same conditions as the footer script
-   (no reduced motion, browser support), so nothing is held that wouldn't be written on.
-   If the footer script never runs (blocked or failed to load), the text is shown on page load. */
+/* Head: hides script lettering before first paint so it never flashes before the write-on. */
 (function () {
   if (!window.IntersectionObserver || !Element.prototype.animate || !window.MutationObserver) return;
   if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;

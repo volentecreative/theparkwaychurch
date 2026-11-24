@@ -1,34 +1,4 @@
-/* Direction-aware header. Why custom code: CSS can't read the scroll direction.
-
-   Scrolling down, the header belongs to the document and scrolls away with it. Scrolling up,
-   it is fetched from above the screen and stays fixed at the top. Scrolling down again, it is
-   released back into the document right where it is and scrolls away naturally.
-
-   CSS (Webflow style panel) does all the positioning and motion:
-     nav_component             position: absolute (its natural place, over the hero),
-                               transition: transform
-     nav_component.is-pinned   position: fixed
-   Reduced motion: no slide; the header just appears pinned (handled here, as the style panel
-   can't do prefers-reduced-motion).
-
-   This script only:
-     - sets data-scroll-direction="up" | "down" on .nav_component (passive listener, moves under
-       THRESHOLD px ignored), and on each change of direction
-     - up:   adds is-pinned, starting from where the header is on screen right now (just above
-             the top if it has scrolled away), so CSS slides it down from there
-     - down: removes is-pinned and sets an inline top = where it currently is in the page, so it
-             carries on scrolling away with the content with no jump
-     - at scrollY 0 clears all of that, so the header is exactly as it was on load.
-   One position read and one style write per change of direction; nothing runs while scrolling
-   in the same direction. If this file doesn't load, the header just scrolls away with the page.
-
-   Also closes an open nav dropdown when scrolling down, so a menu isn't carried off screen.
-   A dropdown holding keyboard focus stays open, and focus inside the header pins it.
-
-   Landing part-way down the page (reload with a restored scroll position, back/forward, or a
-   link to #section) shows the header pinned at the top, in place with no slide. Any scroll
-   that happens before the visitor's first wheel, touch, key or pointer press (or 1s after
-   load, whichever comes first) is treated as the browser's, not theirs. */
+/* Header scrolls away going down, pins (.is-pinned) coming back up, resets at the top. Closes open dropdowns on scroll down. */
 (function(){
   var nav=document.querySelector('.nav_component'); if(!nav) return;
   var PINNED='is-pinned', THRESHOLD=6;

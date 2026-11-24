@@ -1,17 +1,4 @@
-/* Accordion hover highlight, the same gliding highlight as the nav. Why custom code: CSS can't
-   move one shared element to whichever row is hovered.
-
-   Built in Webflow: an .accordion_highlight element whose parent also contains the accordion
-   rows (inside the accordion_list component, or in an .accordion_frame wrapped around a CMS
-   accordion, whose list can't hold extra elements). All of its look (tint, rounding, the
-   sideways bleed, stacking, fade and glide timing) is the style panel:
-     .accordion_highlight             hidden (opacity 0), positioned at the parent's top left
-     .accordion_highlight.is-active   shown
-     .accordion_highlight.is-instant  jump without gliding (a fresh appearance fades in where it is)
-   This only sizes and places it over the hovered (or keyboard-focused) row: the whole
-   .accordion_item, so an open one is covered question and answer together, and it grows and
-   shrinks with the answer as it opens and closes. Mouse and trackpad only, as on the nav; touch keeps the plain rows.
-   No .accordion_highlight in Webflow: nothing happens. */
+/* Accordion: one .accordion_highlight glides to the hovered or focused .accordion_item (.is-active, .is-instant) and follows it while it opens. */
 (function () {
   var hls = document.querySelectorAll('.accordion_highlight');
   if (!hls.length) return;

@@ -1,14 +1,4 @@
-/* Previous / next links at the end of an article. Why custom code: Webflow has no "previous / next
-   item" binding, so the template carries a hidden list of every article (newest first) and this
-   finds the current one in it.
-
-   In Webflow (Articles template):
-     [vci-pager="nav"]    the wrapper (class article_pager)
-     [vci-pager="prev"]   link to the older article; [vci-pager="next"] link to the newer one,
-                          each with a [vci-pager="title"] inside
-     [vci-pager="list"]   hidden Collection List of all articles sorted by date, newest first,
-                          each item holding one link (bound to Page link) with the title inside
-   A side with nothing to link to is removed; with neither, the whole nav goes. */
+/* Article previous / next: fills [vci-pager="prev"|"next"] from the hidden date-sorted [vci-pager="list"]. */
 (function () {
   var nav = document.querySelector('[vci-pager="nav"]');
   var list = nav && document.querySelector('[vci-pager="list"]');

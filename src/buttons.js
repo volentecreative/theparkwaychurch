@@ -1,23 +1,4 @@
-/* Arch button morph, and the nav pill shape that follows it.
- * Why custom code: the hover morph tweens an SVG path "d" attribute, which the style
- * panel cannot do. All styling (fill, stroke, colors, variants, shine, shadow) is native.
- * The Primary button's shine (background-image gradient) and depth (box-shadow) are authored on
- * .button_type in Webflow, so the Designer shows the finished button; this script mirrors those
- * computed values onto the SVG (gradient path + drop-shadow filters) and keeps nothing of its own.
- * This script only (1) adds .is-ready, (2) sets the viewBox, (3) tweens the path "d".
- * Geometry: the resting shape fills the button_type box exactly (matches the native pill);
- * the hover tip overflows ~8px to the right into button_type's margin-right.
- * Touch: the morph is skipped for touch pointers and for non-keyboard focus, so phones
- * and tablets get no hover. Hover colors are switched off at tablet and below natively.
- * Header: a Primary button at the right end of .nav_pill also drives the paths in
- * .nav_pill-shape, so the pill edge follows the arch on hover (colors stay native).
- * Tertiary: the underline is built in Webflow (.button_underline > two .button_underline-line,
- * shown only in the Tertiary variant, sitting 0.2em under the label), so the Designer and the live
- * site render the same element. The SVG is not used for Tertiary. On hover the visible line slides
- * out to the right while the other (parked off the left by .is-incoming) slides in just behind it
- * (one way; leaving does nothing), the old Squarespace underline push. The script only sets their
- * transform. Skipped for reduced motion and touch.
- */
+/* Button component: draws the arch pill shape and the nav pill, tertiary underline slide. */
 (function () {
   var DUR = 700, K = 0.5523, STEP = 12;
   /* Underline slide: each line takes SDUR ms, the incoming one starts SLAG ms after the outgoing. */

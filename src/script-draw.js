@@ -1,23 +1,4 @@
-/* Write-on for script lettering, like an After Effects trim path. Why custom code: revealing
-   text along a pen line needs an SVG mask with an animated stroke, which the style panel can't do.
-
-   A font has outlines, not pen strokes, so each word's pen line is generated ahead of time from
-   the font (scripts/trim-paths/, output in src/script-draw-paths.js): its centerline, ordered
-   the way you'd write it, left to right. Here that line, thick enough to cover the letters, is
-   used as a mask over the real lettering and drawn on stroke by stroke, so the word is revealed
-   as if written with a pen. The final frame is exactly the real text, which then takes over.
-
-   Held invisible from before the first paint by script-draw-early.js (head), so the Designer text
-   doesn't flash before this deferred script runs.
-
-   Applies to .text-style-script (or any element with vci-draw) whose text has a generated pen
-   line; anything else simply shows. Plays once, the first time it scrolls into view. Skipped for
-   reduced motion, and for lettering that wraps or contains other elements.
-
-   Settings (vci-draw-<setting> on the element or any ancestor):
-     vci-draw="false"       leave this one alone
-     vci-draw-duration      ms for the whole word (default 1800)
-*/
+/* Script lettering (.text-style-script) writes itself on when it scrolls into view, from the stroke paths in script-draw-paths.js. */
 (function () {
   var PATHS = window.__scriptDrawPaths || {};
   if (!window.IntersectionObserver || !Element.prototype.animate) return;

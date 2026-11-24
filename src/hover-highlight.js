@@ -1,14 +1,4 @@
-/* Gliding hover highlight for any list of options (the media filter dropdowns), the same motion as
-   the nav dropdowns. Why custom code: CSS can't move one shared element to whichever row is hovered.
-
-   In Webflow:
-     [vci-highlight="list"]    positioned wrapper around the options (class e.g. media-filters_options)
-     [vci-highlight="glide"]   the highlight, authored inside it and styled in the panel:
-                               .is-active shown, .is-instant moves without gliding
-     options                   every label / link directly or deeply inside the list
-   While the highlight glides, options get .is-glide so their own :hover tint steps aside.
-   Also rotates a dropdown's chevron: .w-icon-dropdown-toggle (or [vci-highlight="icon"]) gets
-   .is-open while Webflow's dropdown is open. Mouse/trackpad only; touch keeps the plain hover. */
+/* Gliding hover highlight for option lists: [vci-highlight="glide"] moves to the hovered option inside [vci-highlight="list"]; also rotates the dropdown chevron (.is-open). */
 (function () {
   var fine = window.matchMedia && matchMedia('(hover: hover) and (pointer: fine)');
   var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)');

@@ -1,14 +1,4 @@
-/* "X min read", worked out from the words in the text itself. Why custom code: Webflow has no
-   word count, and a CMS field for it would be something editors could get wrong or forget.
-
-   In Webflow, inside one card or one article:
-     [vci-read-time="source"]  the text to count (the article Body; hidden on cards)
-     [vci-read-time="value"]   gets "X min read"
-     [vci-read-time="wrap"]    optional; holds the value and its separator, removed when there is
-                               nothing to count (a media card, which has no Body)
-   Each value is matched to the nearest source around it, so many cards on one page each count
-   their own article. Cards added later (infinite scroll, filtering) are handled as they arrive.
-   225 words a minute, rounded, never less than 1. */
+/* "X min read" from the word count of the nearest [vci-read-time="source"] into [vci-read-time="value"]; removes [vci-read-time="wrap"] when there is nothing to count. */
 (function () {
   var WPM = 225;
   function run(root) {

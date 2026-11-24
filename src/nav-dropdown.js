@@ -1,41 +1,5 @@
-/*!
- * The Parkway Church — connected nav dropdowns
- *
- * Draws the open dropdown as part of the nav pill (one shape, concave corners
- * where it meets the pill), slides it between dropdowns, crossfades the links,
- * glides one hover highlight between links, glides another between the top-level
- * tabs, and rotates the open chevron.
- *
- * Progressive enhancement: this file only ever ADDS to the stock Webflow
- * dropdown. If it fails to load, or bails out below, the dropdowns keep their
- * normal floating-card look and behaviour, because every "connected" style in
- * Webflow hangs off classes that only this script applies:
- *
- *   nav_dropdown-list.is-connected  card background / border / shadow removed, isolation: isolate,
- *                                   ::before hover bridge hidden (the list sits flush under its tab)
- *   nav_dropdown-list.is-leaving    list being left while Webflow's hover delay holds it open
- *   nav_dropdown-icon.is-open       chevron rotated (desktop: the active tab; mobile: open dropdowns)
- *   nav_dropdown-list.is-open       collapsed (tablet/mobile) menu only: mirrors Webflow's w--open
- *                                   so the expanded state is styled in the panel, not custom CSS
- *
- * Tuning lives in Webflow, as custom attributes on .nav_pill or any ancestor
- * of it (all optional). vci- prefix, same shape as narthex settings:
- *
- *   vci-dropdown-travel         px the links drift when switching        (16)
- *   vci-dropdown-crossfade      ms for old and new links to crossfade     (110)
- *   vci-dropdown-flip           true = new links enter from the other side (false)
- *   vci-dropdown-safe-triangle  false = switch tabs the instant they are touched (true)
- *   vci-dropdown-pass-through   ms a tab must be hovered before it takes over, 0 = off (0)
- *
- * Highlight elements (Webflow elements, styled in the panel; the script only sizes and places them):
- *   .nav_dropdown-highlight  authored inside each list; one per dropdown, shared by its tab and its links
- *                            and glided between them (.is-active, .is-instant; links get .is-glide while
- *                            it runs). Moved into .nav_links on desktop so it sits behind the tab label.
- *   .nav_links-highlight     inside .nav_links: the highlight for plain top-level .nav_link tabs (no
- *                            dropdown); .is-active shown, .is-instant no glide. Sized from the links' padding.
- *
- * Expects (drawn by buttons.js): .nav_pill > svg.nav_pill-shape > path.nav_pill-fill
- */
+/* Nav dropdowns drawn as part of the pill (one shape), sliding between tabs with a gliding link highlight and a safe triangle.
+   Only adds to the stock Webflow dropdown; .is-connected / .is-open / .is-instant / .is-glide carry the styles. */
 (function () {
   'use strict';
 
@@ -58,28 +22,11 @@
     var lists = Array.prototype.slice.call(pill.querySelectorAll('.nav_dropdown-list'));
     // Anything missing: leave the stock dropdowns alone.
     if (!svg || !lists.length) return;
-    // Mouse-driven extras (gliding highlight, safe triangle, pass-through) need pointer events.
+    // Mouse-driven extras (gliding highlight, safe triangle) need pointer events.
     var hasPointer = !!window.PointerEvent;
 
-    // Settings: vci-dropdown-<name> on the pill, or on any ancestor (so one can sit on <html>).
-    function setting(name) {
-      var attr = 'vci-dropdown-' + name;
-      var el = pill.closest ? pill.closest('[' + attr + ']') : pill.hasAttribute(attr) ? pill : null;
-      return el ? el.getAttribute(attr) : null;
-    }
-    function num(name, fallback) {
-      var v = parseFloat(setting(name));
-      return isFinite(v) ? v : fallback;
-    }
-    function flag(name, fallback) {
-      var v = setting(name);
-      return v === null || v === '' ? fallback : v !== 'false' && v !== '0';
-    }
-    var TRAVEL = num('travel', 16);
-    var CROSSFADE = Math.max(0, num('crossfade', 110));
-    var FLIP = flag('flip', false);
-    var SAFE = flag('safe-triangle', true);
-    var PASS_MS = hasPointer ? Math.max(0, num('pass-through', 0)) : 0;
+    var TRAVEL = 16; // px the links drift when switching
+    var CROSSFADE = 110; // ms old and new links crossfade
 
     var icons = lists.map(function (l) {
       return l.parentElement.querySelector('.nav_dropdown-icon');
@@ -113,8 +60,7 @@
     var hovers = []; // one gliding highlight per list
     var tabs = { update: function () {} }; // gliding highlight behind the top-level tabs
     var hovered = null; // list whose dropdown the pointer is on
-    var pending = null; // list waiting to take over (safe triangle / pass-through)
-    var pendingWhy = '';
+    var pending = null; // list waiting to take over (safe triangle)
     var pendingTimer = 0;
     var booting = true; // first pass: adopt whatever is already open without animating
     var pt = null; // pointer now
@@ -407,7 +353,7 @@
         // Switch: old and new crossfade at the same time, so the content never
         // drops out, and both drift the same way, so they travel together
         // rather than across each other. The panel slides underneath.
-        var t = TRAVEL * dir * (FLIP ? -1 : 1);
+        var t = TRAVEL * dir;
         animate(prev, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateX(' + -t + 'px)' }], { duration: CROSSFADE, easing: 'linear', fill: 'forwards' });
         animate(next, [{ opacity: 0 }, { opacity: 1 }], { duration: CROSSFADE, easing: 'linear', fill: 'backwards' });
         animate(next, [{ transform: 'translateX(' + t + 'px)' }, { transform: 'none' }], { duration: Math.max(CROSSFADE, DRIFT_MS), easing: EASE, fill: 'backwards' });
@@ -435,7 +381,7 @@
       measure();
     }
 
-    // ---- safe triangle and pass-through ------------------------------------
+    // ---- safe triangle ------------------------------------
     // The pointer is "aiming at the panel" when it sits inside the triangle
     // from where it was a moment ago to the two top corners of the open panel.
     // While that holds, brushing a neighbouring tab does not switch.
@@ -467,16 +413,14 @@
 
     // A tab other than the active one wants the panel. True if it is being held back for now.
     function hold(l) {
-      var wait = SAFE && aiming() ? SAFE_REST : PASS_MS;
-      if (!wait) return false;
+      if (!aiming()) return false;
       pending = l;
-      pendingWhy = SAFE && aiming() ? 'safe' : 'pass';
       clearTimeout(pendingTimer);
       // Still on that tab when the wait is up: it gets the panel after all.
       pendingTimer = setTimeout(function () {
         if (pending === l && hovered === l) takeOver(l);
         else if (pending === l) pending = null;
-      }, wait);
+      }, SAFE_REST);
       return true;
     }
 
@@ -492,7 +436,7 @@
       }
       pt = p;
       // Held by the triangle, still on that tab, and no longer heading for the panel: switch.
-      if (pending && pendingWhy === 'safe' && hovered === pending && !aiming()) takeOver(pending);
+      if (pending && hovered === pending && !aiming()) takeOver(pending);
     });
 
     function sync() {

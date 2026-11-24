@@ -1,31 +1,5 @@
-/* Scroll entrance animations. Why custom code: Webflow interactions have to be added element by
-   element; this gives every core element one consistent entrance by default.
-
-   What animates by default (inside <main>): cards, headings, paragraphs, blockquotes, images,
-   video, figures and buttons. Each fades in and rises 1rem into place, once, the first time it
-   scrolls into view. Elements that come into view together follow each other in reading order.
-   A card moves as one piece, with everything inside it: every Collection List item
-   (.w-dyn-item), any Client-First list item (home-about_item, events_item...) and any element
-   with a card class (media_card, partners_logo-card...). For a hand-built card with another
-   class name, add vci-reveal to it.
-   The motion (curve, distance, no replay) is the same everywhere; only timing can be tuned.
-
-   Tune it (on the element or any ancestor, so one attribute on a section covers all of it):
-     vci-reveal="false"     no entrance
-     vci-reveal             opt in any other element (a card, a list item...)
-     vci-reveal-delay       ms before it starts (default 0)
-     vci-reveal-duration    ms (default 600)
-   Or from a combo class in the style panel, with custom properties (inherited the same way):
-     --reveal-delay: 200    --reveal-duration: 900
-   An attribute wins over a custom property.
-
-   Safe by construction:
-     - nothing is hidden unless this script runs; reduced motion skips it entirely;
-     - what is already on screen at load is left alone (no flash on the hero);
-     - only opacity and the translate property animate: no layout shift, compositor-only;
-     - focus, find-in-page and printing reveal anything still waiting;
-     - skips the nav, menus, dialogs, elements with a Webflow interaction, script lettering
-       (it has its own write-on), and anything inside another revealing element. */
+/* Scroll entrances: cards, headings, text, media fade and rise in once, in reading order.
+   vci-reveal="false" opts out; vci-reveal opts in; vci-reveal-delay / -duration or --reveal-delay / --reveal-duration tune timing. */
 (function () {
   if (!window.IntersectionObserver || !Element.prototype.animate) return;
   if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;

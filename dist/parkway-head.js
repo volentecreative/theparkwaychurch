@@ -1,7 +1,6 @@
-/*! The Parkway Church site code v0.9.32. Built from src/, do not edit. */
+/*! The Parkway Church site code v0.9.33. Built from src/, do not edit. */
 /* ---- src/image-sizes-fix.js ---- */
-/* Image sizes fix (same as The North Church). Sets each img sizes to its rendered width so the browser
-   downloads the smallest srcset file that fits, cutting mobile bandwidth. Needs JS: runs before images load. */
+/* Head: corrects Webflow image sizes attributes before images load. */
 (function(){var d=new WeakSet(),ro='ResizeObserver'in window?new ResizeObserver(function(es){es.forEach(function(e){if(e.contentRect.width&&fix(e.target))ro.unobserve(e.target)})}):null;
 function need(i){var r=i.getBoundingClientRect();if(!r.width||!r.height)return 0;return Math.ceil(getComputedStyle(i).objectFit==='cover'?Math.max(r.width,r.height):r.width)}
 function fix(i){if(!i.srcset||d.has(i))return true;if(i.complete&&i.currentSrc)return true;var w=need(i);if(!w){if(ro)ro.observe(i);return false}i.sizes=w+'px';d.add(i);return true}
@@ -11,16 +10,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 var t;addEventListener('resize',function(){clearTimeout(t);t=setTimeout(function(){document.querySelectorAll('img[srcset]').forEach(function(i){var w=need(i);if(w&&d.has(i)&&w>parseInt(i.sizes,10))i.sizes=w+'px'})},200)})})();
 
 /* ---- src/script-draw-early.js ---- */
-/* Write-on, early part (head). Why custom code: the write-on script loads deferred in the footer, so
-   the browser paints the page once before it runs. Script lettering would show for that moment as
-   the text written in the Designer (e.g. a placeholder season name) in the fallback serif, before
-   the font loads and the write-on starts.
-
-   This holds that lettering transparent from the moment each element is parsed, before the first
-   paint. The footer script (script-draw.js) then takes over: it swaps in the right word, writes it
-   on, and shows straight away anything it can't write on. Same conditions as the footer script
-   (no reduced motion, browser support), so nothing is held that wouldn't be written on.
-   If the footer script never runs (blocked or failed to load), the text is shown on page load. */
+/* Head: hides script lettering before first paint so it never flashes before the write-on. */
 (function () {
   if (!window.IntersectionObserver || !Element.prototype.animate || !window.MutationObserver) return;
   if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
