@@ -1283,7 +1283,7 @@ window.__scriptDrawPaths = {"Winter":{"width":0.0802,"paths":[{"d":"M.065-.190C.
      vci-reveal="false"     no entrance
      vci-reveal             opt in any other element (a card, a list item...)
      vci-reveal-delay       ms before it starts (default 0)
-     vci-reveal-duration    ms (default 600)
+     vci-reveal-duration    ms (default 900)
    Or from a combo class in the style panel, with custom properties (inherited the same way):
      --reveal-delay: 200    --reveal-duration: 900
    An attribute wins over a custom property.
