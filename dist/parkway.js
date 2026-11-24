@@ -1,4 +1,4 @@
-/*! The Parkway Church site code v0.9.58. Built from src/, do not edit. */
+/*! The Parkway Church site code v0.9.59. Built from src/, do not edit. */
 /* ---- src/announcement.js ---- */
 /* Announcement bar [vci-announcement="bar"] inside the sticky nav: --announcement-height = its height (the nav's negative sticky top), removed with 0 when empty. */
 (function () {
@@ -1495,7 +1495,7 @@
       var g = other.shape, opacity = parseFloat(other.list.style.opacity || '1');
       if (other.raf) { cancelAnimationFrame(other.raf); other.raf = 0; }
       if (other.morph) { release(other.morph.ctl); other.morph = null; }
-      other.open = false; other.p = 0; other.fading = true;
+      other.p = 0; other.fading = true; // its open flag keeps following Webflow's w--open; sync ignores it while fading
       other.toggle.classList.remove('is-connected'); // its own border is back; the list stays connected while it fades
       other.list.style.display = 'block';
       other.dd.style.zIndex = '31'; // its fading contents stay above this fill
@@ -1506,11 +1506,17 @@
       run(0, 1);
     }
     c.setPaths = setPaths;
+    c.release = release;
 
     function sync() {
       var on = toggle.classList.contains('w--open');
       if (on === c.open) return; // our own class writes land here and stop
       c.open = on;
+      if (c.fading) { // another dropdown is sliding our panel away
+        if (!on) return; // Webflow closing us: that slide already handles it
+        var host = all.filter(function (x) { return x.morph && x.morph.ctl === c; })[0];
+        if (host) { host.release(c); host.morph = null; host.toggle.classList.add('is-connected'); } // switched straight back
+      }
       if (on) {
         list.style.display = '';
         var other = all.filter(function (x) { return x !== c && x.connected && x.shape && !x.fading; })[0];
