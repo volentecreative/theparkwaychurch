@@ -147,9 +147,11 @@
       })(k);
       grid.appendChild(cell);
     }
-    var from = selected || key(y, mo, 1), to = selected || key(y, mo, new Date(y, mo + 1, 0).getDate()), shown = 0;
+    // Agenda-only (mobile) has no month paging, so it lists everything upcoming.
+    var agendaOnly = monthPane && !monthPane.offsetParent && !selected;
+    var from = selected || (agendaOnly ? today : key(y, mo, 1)), to = selected || (agendaOnly ? 99991231 : key(y, mo, new Date(y, mo + 1, 0).getDate())), shown = 0;
     list.forEach(function (ev) { var inRange = ev.start <= to && ev.end >= from; ev.el.style.display = inRange ? '' : 'none'; if (inRange) shown++; });
-    if (agendaTitle) agendaTitle.textContent = selected ? longDay.format(fromKey(selected)) : monthYear.format(first);
+    if (agendaTitle) agendaTitle.textContent = selected ? longDay.format(fromKey(selected)) : agendaOnly ? 'Upcoming' : monthYear.format(first);
     if (showMonth) showMonth.hidden = !selected;
     if (empty) empty.hidden = shown > 0;
   }
@@ -175,7 +177,11 @@
       var v = btn.getAttribute('vci-calendar-view');
       views.forEach(function (b) { var on = b === btn; b.classList.toggle('is-active', on); b.setAttribute('aria-pressed', on); });
       if (monthPane) monthPane.classList.toggle('is-collapsed', v === 'agenda');
+      selected = 0;
+      render();
     });
   });
+  var wide = matchMedia('(min-width: 992px)');
+  (wide.addEventListener ? wide.addEventListener('change', render) : wide.addListener(render));
   render();
 })();
