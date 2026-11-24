@@ -1,4 +1,4 @@
-/*! The Parkway Church site code v0.9.19. Built from src/, do not edit. */
+/*! The Parkway Church site code v0.9.20. Built from src/, do not edit. */
 /* ---- src/buttons.js ---- */
 /* Arch button morph, and the nav pill shape that follows it.
  * Why custom code: the hover morph tweens an SVG path "d" attribute, which the style
@@ -1090,8 +1090,9 @@
      .accordion_highlight             hidden (opacity 0), positioned at the parent's top left
      .accordion_highlight.is-active   shown
      .accordion_highlight.is-instant  jump without gliding (a fresh appearance fades in where it is)
-   This only sizes and places it over the hovered (or keyboard-focused) question, which is each
-   row's .accordion_toggle. Mouse and trackpad only, as on the nav; touch keeps the plain rows.
+   This only sizes and places it over the hovered (or keyboard-focused) row: the whole
+   .accordion_item, so an open one is covered question and answer together, and it grows and
+   shrinks with the answer as it opens and closes. Mouse and trackpad only, as on the nav; touch keeps the plain rows.
    No .accordion_highlight in Webflow: nothing happens. */
 (function () {
   var hls = document.querySelectorAll('.accordion_highlight');
@@ -1101,8 +1102,10 @@
 
   Array.prototype.forEach.call(hls, function (hl) {
     var frame = hl.parentElement;
-    var toggles = Array.prototype.slice.call(frame.querySelectorAll('.accordion_toggle'));
-    if (!toggles.length) return;
+    var rows = Array.prototype.map.call(frame.querySelectorAll('.accordion_toggle'), function (t) {
+      return t.closest('.accordion_item') || t;
+    });
+    if (!rows.length) return;
     var lit = null, over = null, leaveTimer = 0;
 
     function place(t, glide) {
@@ -1130,7 +1133,7 @@
       leaveTimer = setTimeout(function () { if (over === t) over = null; update(); }, 60);
     }
 
-    toggles.forEach(function (t) {
+    rows.forEach(function (t) {
       t.addEventListener('pointerenter', function (e) {
         if (e.pointerType === 'mouse' || (fine && fine.matches)) enter(t);
       });
@@ -1140,11 +1143,12 @@
       });
       t.addEventListener('focusout', function () { leave(t); });
     });
-    // Rows above move while an answer opens or closes, and on resize: follow the lit row.
+    // An answer opening or closing changes the lit row's height (and moves the rows below), and
+    // so does a resize: follow the lit row until it settles.
     var raf = 0;
     function follow() {
       cancelAnimationFrame(raf);
-      var until = Date.now() + 600;
+      var until = Date.now() + 900;
       (function tick() { if (lit) place(lit, null); if (Date.now() < until) raf = requestAnimationFrame(tick); })();
     }
     frame.addEventListener('click', follow);

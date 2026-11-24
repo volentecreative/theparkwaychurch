@@ -33,13 +33,13 @@ Source is ES5-compatible browser JS, because nothing transpiles it.
 Head code:
 
 ```html
-<script src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.9.19/dist/parkway-head.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.9.20/dist/parkway-head.min.js"></script>
 ```
 
 Footer code, alongside the narthex nav tag:
 
 ```html
-<script defer src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.9.19/dist/parkway.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.9.20/dist/parkway.min.js"></script>
 ```
 
 jsDelivr minifies on request when the URL ends in `.min.js`, and only serves
@@ -220,7 +220,8 @@ wrapped around a CMS accordion (a Collection List can't hold extra elements; see
 Its look is all style panel (brand-100 tint, 1rem radius, a 1rem sideways bleed drawn with two
 box-shadows, z-index -1, the nav's fade and glide timing); `.is-active` shows it, `.is-instant`
 jumps without gliding. `src/accordion-highlight.js` only sizes and places it over the hovered or
-keyboard-focused `.accordion_toggle`, and follows it while answers open and close. Mouse and
+keyboard-focused row (the whole `.accordion_item`, so an open one is covered question and answer
+together), and follows it while answers open and close. Mouse and
 trackpad only.
 
 ## Calendar events sync
