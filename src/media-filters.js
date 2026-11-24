@@ -71,11 +71,12 @@
       area.dispatchEvent(new Event('scroll')); // the custom scrollbar re-measures
     }
     input.addEventListener('input', apply);
+    input.addEventListener('search', apply); // Escape and the clear button empty a search field without an input event
     input.addEventListener('keydown', function (e) {
       if (e.key !== 'Enter') return;
       e.preventDefault(); // don't submit the filters form
       var first = options.filter(usable)[0];
-      if (first) first.click();
+      if (first) { first.click(); input.focus({ preventScroll: true }); } // keep typing
     });
     var fine = matchMedia('(pointer: fine)'); // no keyboard pop-up on touch screens
     var wasOpen = false;
@@ -84,7 +85,7 @@
       if (open === wasOpen) return; // count and connect classes change too; only act on open and close
       wasOpen = open;
       if (open) { if (fine.matches) requestAnimationFrame(function () { input.focus({ preventScroll: true }); }); }
-      else if (input.value) { input.value = ''; apply(); }
+      else { input.value = ''; apply(); }
     }).observe(toggle, { attributes: true, attributeFilter: ['class'] });
   });
 
