@@ -28,11 +28,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      # The feed keeps its HTML (no strip_html) so links in descriptions reach the Body field.
       - run: node scripts/sync-events.js
         env:
           WEBFLOW_TOKEN: ${{ secrets.WEBFLOW_TOKEN }}
           WEBFLOW_COLLECTION_ID: ${{ vars.WEBFLOW_COLLECTION_ID || '6b005da0bd484318dd94b6dd' }}
-          EVENTS_ICAL_URL: ${{ vars.EVENTS_ICAL_URL || 'https://theparkwaychurch.ccbchurch.com/w_calendar_sub.ics?strip_html=true' }}
+          EVENTS_ICAL_URL: ${{ vars.EVENTS_ICAL_URL || 'https://theparkwaychurch.ccbchurch.com/w_calendar_sub.ics' }}
           # The weekly gatherings are already in the homepage schedule; keep them out of the cards.
           EVENTS_SKIP: ${{ vars.EVENTS_SKIP || '^(Worship Service|Evening Prayer Service|Youth|Theological Equipping Class)' }}
           EVENTS_HOME: ${{ vars.EVENTS_HOME }}

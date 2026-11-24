@@ -32,13 +32,13 @@ Source is ES5-compatible browser JS, because nothing transpiles it.
 Head code:
 
 ```html
-<script src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.9.16/dist/parkway-head.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.9.17/dist/parkway-head.min.js"></script>
 ```
 
 Footer code, alongside the narthex nav tag:
 
 ```html
-<script defer src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.9.16/dist/parkway.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.9.17/dist/parkway.min.js"></script>
 ```
 
 jsDelivr minifies on request when the URL ends in `.min.js`, and only serves
@@ -173,26 +173,33 @@ later.
 
 ## Events page
 
-/events shows a month calendar above an "Upcoming events" list. Both come from one Collection
-List of the **Events** collection (sorted by Start, up to 100), so there is no embed and nothing
+/events, top to bottom: **Coming up** (the next three events with **Featured** switched on in the
+CMS), a calendar of the next few weeks, and **Upcoming events** (every event). All three are
+Collection Lists of the **Events** collection (sorted by Start), so there is no embed and nothing
 provider-specific on the page: whatever is in the collection is what shows.
 
-- Desktop and tablet: a month grid. Each day lists its events as chips; choosing one scrolls to
-  that event's card in the list and outlines it for a moment (`events_item.is-highlighted`).
-- Phone (`small` breakpoint, style panel only): the same grid shrinks to a compact month with a
-  dot on days that have events (`events-calendar_day-events` hidden, `events-calendar_day-dot`
+- The calendar is a rolling window, not a calendar month: it starts on the Sunday of this week and
+  shows 5 weeks, so at least 4 full weeks ahead are always visible. The month is named on the
+  first day shown and on each 1st, which also gets a tinted tile (`is-month-start`). The arrows
+  page by a whole window. `vci-calendar-weeks="4"` on the component changes the length.
+- Desktop and tablet: each day lists its events as chips; choosing one scrolls to that event's
+  card in the list and outlines it for a moment (`events_item.is-highlighted`).
+- Phone (`small` breakpoint, style panel only): the same grid shrinks to compact tiles with a dot
+  on days that have events (`events-calendar_day-events` hidden, `events-calendar_day-dot`
   shown). Tapping a day jumps to its event in the list below.
-- Months run from this month to the month of the last event. Events that have already ended are
-  hidden.
+- Events that have already ended are hidden everywhere; Coming up hides itself when nothing
+  featured is left.
+- Cards show **Body** (rich text, links kept), not the plain Description.
 
-Built in Webflow: one `events-calendar_day` and one `events-calendar_event` chip inside the grid,
-which `src/events-calendar.js` copies for each day and event. Combos it adds:
-`events-calendar_day.is-outside` (days from the next/previous month), `.is-today`, and
-`events-calendar_nav-button.is-disabled`. Each Collection Item has `vci-calendar="event"` and the
-attributes `vci-event-start`, `vci-event-end`, `vci-event-time` bound to Start, End and Time.
+Built in Webflow: one `events-calendar_day` (with `events-calendar_day-head` > `_day-month` +
+`_day-number`) and one `events-calendar_event` chip inside the grid, which
+`src/events-calendar.js` copies for each day and event. Combos it adds:
+`events-calendar_day.is-past`, `.is-today`, `.is-month-start`, and
+`events-calendar_nav-button.is-disabled`. List items carry `vci-event-start`, `vci-event-end`
+(and in the main list `vci-calendar="event"` and `vci-event-time`), bound to Start, End, Time.
 
-Events can also be typed into the CMS by hand: leave **Event ID** empty and the sync never
-touches them.
+Set **Featured** in the CMS; the sync never changes it. Events can also be typed into the CMS by
+hand: leave **Event ID** empty and the sync never touches them.
 
 ## Calendar events sync
 
@@ -202,10 +209,10 @@ runs `scripts/sync-events.js` every hour. It reads the church's public calendar
 in Church Community Builder (CCB) as an iCal feed, expands repeating events, and
 makes the collection match the upcoming events. New events are created, edited
 ones updated, and past, cancelled or deleted ones removed. Changes are published
-straight away. Edit events in CCB, never in the CMS: the next run overwrites CMS
-edits.
+straight away. Edit synced events in CCB, not in the CMS: the next run overwrites the
+fields it owns. **Featured** is the CMS's own and is never touched.
 
-Feed: `https://theparkwaychurch.ccbchurch.com/w_calendar_sub.ics?strip_html=true`
+Feed: `https://theparkwaychurch.ccbchurch.com/w_calendar_sub.ics` (with its HTML, so description links survive into **Body**; `?strip_html=true` would drop them)
 (the "subscribe" link on the church's public CCB calendar). No API key needed.
 
 Setup (repository → Settings → Secrets and variables → Actions): one secret,
@@ -235,7 +242,7 @@ change without writing.
 
 Fields the sync writes: Name, Slug, Start, End, All day, Time (`6:30–8pm`,
 `All day`, `Through Tue, Dec 8`), Location (full), Details (Time · room),
-Description (plain text), Event ID (the match key; its slug is `google-event-id`
+Description (plain text), Body (rich text with the description's links and bold kept), Featured (set by hand, never synced), Event ID (the match key; its slug is `google-event-id`
 from the first version). All-day events are stored at noon Central so the date
 never shifts a day.
 
