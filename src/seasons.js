@@ -1,36 +1,26 @@
-/* Current season name. Why custom code: Webflow can't pick content by today's date on a static
-   page (CMS date filters are worked out at publish time, so they'd go stale between publishes).
-
-   The seasons live in the CMS (Seasons collection: Name, Start Month, End Month), so the church
-   can change them without touching code. A page that shows the season carries a hidden
-   Collection List of Seasons whose items each hold one element:
-     vci-season="item"  vci-season-name="Fall"  vci-season-start="August"  vci-season-end="November"
-   (months as the option names, or 1-12). A season may wrap the year: December to January.
-
-   Then any element with vci-season="name" gets its text replaced by the season we're in today
-   (visitor's own date). If nothing matches, the text written in the Designer stays as it is.
-   Runs before script-draw, so the write-on draws the right word. */
+/* Season wordmark. Seasons live in the CMS (Name, Start Month, End Month); a hidden list on the page
+   carries one [vci-season="item"] per season with vci-season-name / -start / -end. From 7 days
+   before a season starts, [vci-season="name"] shows it and [vci-season="qualifier"] reads
+   "Begins December 1"; otherwise the current season shows and the qualifier is removed.
+   Event lists are not affected. Runs before script-draw so the write-on draws the right word. */
 (function () {
-  var MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
-  function month(v) {
-    v = (v || '').trim().toLowerCase();
-    var n = parseInt(v, 10);
-    if (n >= 1 && n <= 12) return n - 1;
-    return MONTHS.indexOf(v.slice(0, 3));
+  var names = document.querySelectorAll('[vci-season="name"]');
+  if (!names.length) return;
+  var ABBR = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+  function month(v) { v = (v || '').trim().toLowerCase(); var n = parseInt(v, 10); return n >= 1 && n <= 12 ? n - 1 : ABBR.indexOf(v.slice(0, 3)); }
+  var seasons = Array.prototype.map.call(document.querySelectorAll('[vci-season="item"]'), function (it) {
+    return { name: (it.getAttribute('vci-season-name') || '').trim(), s: month(it.getAttribute('vci-season-start')), e: month(it.getAttribute('vci-season-end')) };
+  }).filter(function (x) { return x.name && x.s >= 0 && x.e >= 0; });
+  function at(d) {
+    var m = d.getMonth();
+    for (var i = 0; i < seasons.length; i++) { var x = seasons[i]; if (x.s <= x.e ? m >= x.s && m <= x.e : m >= x.s || m <= x.e) return x; }
   }
-
-  var targets = document.querySelectorAll('[vci-season="name"]');
-  if (!targets.length) return;
-  var items = document.querySelectorAll('[vci-season="item"]');
-  var now = new Date().getMonth(), current = null;
-  for (var i = 0; i < items.length && !current; i++) {
-    var it = items[i], name = (it.getAttribute('vci-season-name') || '').trim();
-    var s = month(it.getAttribute('vci-season-start')), e = month(it.getAttribute('vci-season-end'));
-    if (!name || s < 0 || e < 0) continue;
-    if (s <= e ? now >= s && now <= e : now >= s || now <= e) current = name;
-  }
-  if (!current) return;
-  for (var j = 0; j < targets.length; j++) {
-    if (targets[j].textContent.trim() !== current) targets[j].textContent = current;
-  }
+  var now = new Date(), current = at(now), soon = at(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7));
+  var show = soon || current, upcoming = soon && soon !== current;
+  if (!show) return;
+  Array.prototype.forEach.call(names, function (el) { if (el.textContent.trim() !== show.name) el.textContent = show.name; });
+  var label = upcoming && 'Begins ' + new Intl.DateTimeFormat(undefined, { month: 'long' }).format(new Date(2000, show.s, 1)) + ' 1';
+  Array.prototype.forEach.call(document.querySelectorAll('[vci-season="qualifier"]'), function (el) {
+    if (label) el.textContent = label; else el.remove();
+  });
 })();
