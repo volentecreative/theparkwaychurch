@@ -1,4 +1,4 @@
-/*! The Parkway Church site code v0.9.18. Built from src/, do not edit. */
+/*! The Parkway Church site code v0.9.19. Built from src/, do not edit. */
 /* ---- src/buttons.js ---- */
 /* Arch button morph, and the nav pill shape that follows it.
  * Why custom code: the hover morph tweens an SVG path "d" attribute, which the style
@@ -1264,6 +1264,14 @@
     var items = block.querySelectorAll('[vci-event-start]'), left = 0;
     for (var i = 0; i < items.length; i++) if (!items[i].__ended) left++;
     if (!left) hide(block);
+  });
+
+  // Calendar subscribe links: Webflow's link field only takes http(s), so an .ics feed is linked
+  // as https and switched to webcal:// here, which makes Apple Calendar and Outlook subscribe
+  // (stay updated) instead of importing a one-off copy. Without this script it just downloads.
+  Array.prototype.forEach.call(document.querySelectorAll('a[href*=".ics"]'), function (a) {
+    var href = a.getAttribute('href');
+    if (/^https?:\/\/[^?#]+\.ics(\?|#|$)/i.test(href)) a.setAttribute('href', href.replace(/^https?:/i, 'webcal:'));
   });
 
   var comp = document.querySelector('[vci-calendar="component"]');

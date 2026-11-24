@@ -73,6 +73,14 @@
     if (!left) hide(block);
   });
 
+  // Calendar subscribe links: Webflow's link field only takes http(s), so an .ics feed is linked
+  // as https and switched to webcal:// here, which makes Apple Calendar and Outlook subscribe
+  // (stay updated) instead of importing a one-off copy. Without this script it just downloads.
+  Array.prototype.forEach.call(document.querySelectorAll('a[href*=".ics"]'), function (a) {
+    var href = a.getAttribute('href');
+    if (/^https?:\/\/[^?#]+\.ics(\?|#|$)/i.test(href)) a.setAttribute('href', href.replace(/^https?:/i, 'webcal:'));
+  });
+
   var comp = document.querySelector('[vci-calendar="component"]');
   if (!comp) return;
 

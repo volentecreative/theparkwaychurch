@@ -33,13 +33,13 @@ Source is ES5-compatible browser JS, because nothing transpiles it.
 Head code:
 
 ```html
-<script src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.9.18/dist/parkway-head.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.9.19/dist/parkway-head.min.js"></script>
 ```
 
 Footer code, alongside the narthex nav tag:
 
 ```html
-<script defer src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.9.18/dist/parkway.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/gh/volentecreative/theparkwaychurch@v0.9.19/dist/parkway.min.js"></script>
 ```
 
 jsDelivr minifies on request when the URL ends in `.min.js`, and only serves
@@ -199,7 +199,7 @@ provider-specific on the page: whatever is in the collection is what shows.
 - The season script heading ("Fall at Parkway") sits above Coming up, fed by its own hidden
   Seasons list, as on Home.
 - Subscribe buttons in the hero: Google Calendar (`calendar.google.com/calendar/render?cid=` +
-  the webcal feed) and Apple & Outlook (the `webcal://` feed). Both are the full CCB calendar,
+  the webcal feed) and Apple & Outlook (the feed linked as `https://…/w_calendar_sub.ics`; the script switches any `.ics` link to `webcal://` so it subscribes, since Webflow's link field won't take `webcal:`). Both are the full CCB calendar,
   weekly gatherings included.
 
 Built in Webflow: one `events-calendar_day` (with `events-calendar_day-head` > `_day-month` +
