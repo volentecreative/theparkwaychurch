@@ -6,7 +6,7 @@
    scrolls into view. Elements that come into view together follow each other in reading order.
    A card moves as one piece, with everything inside it: every Collection List item
    (.w-dyn-item), any Client-First list item (home-about_item, events_item...) and any element
-   with a card class (sermons_card, partners_logo-card...). For a hand-built card with another
+   with a card class (media_card, partners_logo-card...). For a hand-built card with another
    class name, add vci-reveal to it.
    The motion (curve, distance, no replay) is the same everywhere; only timing can be tuned.
 

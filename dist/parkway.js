@@ -1,4 +1,4 @@
-/*! The Parkway Church site code v0.9.24. Built from src/, do not edit. */
+/*! The Parkway Church site code v0.9.25. Built from src/, do not edit. */
 /* ---- src/buttons.js ---- */
 /* Arch button morph, and the nav pill shape that follows it.
  * Why custom code: the hover morph tweens an SVG path "d" attribute, which the style
@@ -1211,6 +1211,31 @@
   });
 })();
 
+/* ---- src/read-time.js ---- */
+/* "X min read", worked out from the words in the text itself. Why custom code: Webflow has no
+   word count, and a CMS field for it would be something editors could get wrong or forget.
+
+   In Webflow, inside one card or one article:
+     [vci-read-time="source"]  the text to count (the article Body; hidden on cards)
+     [vci-read-time="value"]   gets "X min read"
+     [vci-read-time="wrap"]    optional; holds the value and its separator, removed when there is
+                               nothing to count (a media card whose Body is left empty)
+   Each value is matched to the nearest source around it, so many cards on one page each count
+   their own article. 225 words a minute, rounded, never less than 1. */
+(function () {
+  var WPM = 225;
+  Array.prototype.forEach.call(document.querySelectorAll('[vci-read-time="value"]'), function (value) {
+    var source = null;
+    for (var el = value.parentElement; el && !source; el = el.parentElement) {
+      source = el.querySelector('[vci-read-time="source"]');
+    }
+    var words = source ? (source.textContent.match(/\S+/g) || []).length : 0;
+    var wrap = value.closest('[vci-read-time="wrap"]');
+    if (!words) { (wrap || value).remove(); return; }
+    value.textContent = Math.max(1, Math.round(words / WPM)) + ' min read';
+  });
+})();
+
 /* ---- src/seasons.js ---- */
 /* Current season name. Why custom code: Webflow can't pick content by today's date on a static
    page (CMS date filters are worked out at publish time, so they'd go stale between publishes).
@@ -1653,7 +1678,7 @@ window.__scriptDrawPaths = {"Winter":{"width":0.0802,"paths":[{"d":"M.065-.190C.
    scrolls into view. Elements that come into view together follow each other in reading order.
    A card moves as one piece, with everything inside it: every Collection List item
    (.w-dyn-item), any Client-First list item (home-about_item, events_item...) and any element
-   with a card class (sermons_card, partners_logo-card...). For a hand-built card with another
+   with a card class (media_card, partners_logo-card...). For a hand-built card with another
    class name, add vci-reveal to it.
    The motion (curve, distance, no replay) is the same everywhere; only timing can be tuned.
 
