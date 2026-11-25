@@ -1,4 +1,4 @@
-/*! The Parkway Church site code v0.9.60. Built from src/, do not edit. */
+/*! The Parkway Church site code v0.9.61. Built from src/, do not edit. */
 /* ---- src/announcement.js ---- */
 /* Announcement bar [vci-announcement="bar"] inside the sticky nav: --announcement-height = its height (the nav's negative sticky top), removed with 0 when empty. */
 (function () {
@@ -1699,8 +1699,10 @@
 /* ---- src/events-calendar.js ---- */
 /* Church calendar. One Events Collection List is the source for everything:
    - every item with vci-event-start (+ vci-event-end): hidden once ended; its [vci-event="month"] /
-     [vci-event="day"] date tile is filled; a [vci-event="toggle"] opens its [vci-event="details"]
-     (removed when the body is empty).
+     [vci-event="day"] date tile is filled; its [vci-event="details"] is removed when the body is empty.
+   - [vci-event="link"][vci-event-slug] (the event_card Small variant) links to /events#slug, the
+     event's card in the full list (each item's id is its slug).
+   - landing on /events#slug outlines that card for a moment (.is-highlighted).
    - [vci-calendar="upcoming"] list: shows only the next vci-calendar-limit events.
    - [vci-calendar="featured"]: hidden when none of its events are left.
    - .ics links become webcal:// so calendar apps subscribe.
@@ -1737,14 +1739,12 @@
     var d = fromKey(start), m = $(el, '[vci-event="month"]'), day = $(el, '[vci-event="day"]');
     if (m) m.textContent = shortMonth.format(d);
     if (day) day.textContent = d.getDate();
-    var toggle = $(el, '[vci-event="toggle"]'), details = $(el, '[vci-event="details"]');
-    if (toggle && details) {
-      if (!details.textContent.trim()) { toggle.remove(); details.remove(); }
-      else toggle.addEventListener('click', function () {
-        var open = details.classList.toggle('is-open');
-        toggle.setAttribute('aria-expanded', open);
-        toggle.textContent = open ? 'Hide details' : 'Details';
-      });
+    var details = $(el, '[vci-event="details"]');
+    if (details && !details.textContent.trim()) details.remove();
+    var link = $(el, '[vci-event="link"][vci-event-slug]');
+    if (link) {
+      var slug = link.getAttribute('vci-event-slug').trim();
+      if (slug) link.setAttribute('href', (link.getAttribute('href') || '/events').split('#')[0] + '#' + encodeURIComponent(slug));
     }
     return ev;
   });
@@ -1774,6 +1774,20 @@
     a.setAttribute('href', feed);
     a.removeAttribute('target');
   });
+
+  // /events#slug (from a Small card): outline that event's card once it has scrolled into view.
+  function landOn() {
+    var id = decodeURIComponent(location.hash.slice(1));
+    var target = id && document.getElementById(id);
+    if (!target || !target.hasAttribute('vci-event-start') || target.style.display === 'none') return;
+    target.classList.remove('is-highlighted');
+    void target.offsetWidth; // restart if it was already lit
+    target.classList.add('is-highlighted');
+    clearTimeout(landOn.t);
+    landOn.t = setTimeout(function () { target.classList.remove('is-highlighted'); }, 2400);
+  }
+  landOn();
+  window.addEventListener('hashchange', landOn);
 
   // [vci-calendar="component"]: the full upcoming list; [vci-calendar="empty"] shows when nothing is left.
   var comp = q(document, 'component');
