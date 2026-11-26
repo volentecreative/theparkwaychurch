@@ -12,7 +12,8 @@ measurements and mobile menu) still comes from
 | `src/buttons.js` | Arch button morph, and the nav pill shape that follows it. |
 | `src/nav-scroll.js` | Header slides away on scroll down and back on scroll up. Closes an open dropdown after 8px of scrolling down. |
 | `src/nav-toggle.js` | Mirrors the hamburger's `is-open` onto its lines, so the X is styled in the panel. |
-| `src/reveal.js` | Default scroll entrance for headings, text, images and buttons. |
+| `src/reveal.js` | Default entrance for headings, text, images and buttons: on page load for what is on screen, on scroll for the rest. |
+| `src/reveal-early.js` | Head: holds reveal targets invisible from before the first paint, so on-screen content enters on load instead of flashing. |
 | `src/nav-dropdown.js` | Connected nav dropdowns (see below). |
 | `src/accordion-highlight.js` | Gliding hover highlight on accordion questions, same as the nav's (see below). |
 | `src/form-submit.js` | Lets a button component (in `[vci-form="submit"]`) submit its form through the hidden native submit button. Used on /connect. |
@@ -25,7 +26,7 @@ measurements and mobile menu) still comes from
 | `scripts/sync-events.js` | Church calendar (any iCal feed; CCB today) → Webflow CMS Events sync. Run hourly by `.github/workflows/sync-events.yml`. |
 | `scripts/build.js` | Concatenates `src/` into `dist/`. No transpile, no minify. |
 | `dist/parkway.js` | **Committed.** Footer bundle: buttons, nav-scroll, nav-dropdown, in that order. |
-| `dist/parkway-head.js` | **Committed.** Head bundle: image-sizes-fix, script-draw-early. |
+| `dist/parkway-head.js` | **Committed.** Head bundle: image-sizes-fix, script-draw-early, reveal-early. |
 
 Source is ES5-compatible browser JS, because nothing transpiles it.
 

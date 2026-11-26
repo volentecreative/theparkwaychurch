@@ -1,4 +1,5 @@
-/* Scroll entrances: cards, headings, text, media fade and rise in once, in reading order.
+/* Entrances: cards, headings, text, media fade and rise in once, in reading order: on page load for
+   what is already on screen (held from the first paint by reveal-early.js), on scroll for the rest.
    vci-reveal="false" opts out; vci-reveal opts in; vci-reveal-delay / -duration or --reveal-delay / --reveal-duration tune timing. */
 (function () {
   if (!window.IntersectionObserver || !Element.prototype.animate) return;
@@ -11,6 +12,9 @@
   var SKIP = 'nav,header,[role="dialog"],.w-nav,.w-dropdown,.nav_component,.text-style-script,[data-w-id]';
   var EASE = 'cubic-bezier(.2,.7,.2,1)', RISE = '0 1rem', STAGGER = 70, MAX_STAGGER = 5;
   var DURATION = 600;
+  // Page load: whatever is on screen enters in reading order. Media only fades (a full-bleed
+  // background image that rises would open a gap at its edge).
+  var MEDIA = 'img,picture,video', LOAD_DELAY = 80, LOAD_STAGGER = 90, LOAD_MAX = 8, LOAD_MEDIA = 1000;
 
   function off(el) {
     var o = el.closest('[vci-reveal]');
@@ -38,11 +42,30 @@
     }
 
     // Read every position first, then write: one layout pass.
-    var vh = innerHeight;
-    var waiting = targets.filter(function (el) {
+    var vh = innerHeight, onLoad = [], waiting = [];
+    targets.forEach(function (el) {
       var r = el.getBoundingClientRect();
-      return r.width && r.height && r.top >= vh; // already on screen (or not rendered): leave alone
+      if (!r.width || !r.height) return; // not rendered: leave alone
+      (r.top < vh && r.bottom > 0 ? onLoad : waiting).push(el);
     });
+
+    // On screen at load: enter now, in reading order. Only when the head part held them
+    // (reveal-early.js), otherwise they've already been painted and an entrance would flash.
+    var early = window.__revealHeld;
+    window.__revealReady = true;
+    if (early) {
+      onLoad.forEach(function (el, k) {
+        var media = el.matches(MEDIA);
+        el.animate(media ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, translate: RISE }, { opacity: 1, translate: '0 0' }], {
+          duration: num(el, 'duration', media ? LOAD_MEDIA : DURATION),
+          delay: num(el, 'delay', 0) + LOAD_DELAY + Math.min(k, LOAD_MAX) * LOAD_STAGGER,
+          easing: EASE,
+          fill: 'backwards'
+        });
+      });
+      // Everything the head part held: hand back to the animation (or simply show it).
+      early.forEach(function (el) { el.style.opacity = ''; });
+    }
     if (!waiting.length) return;
 
     var pending = new Set(waiting);
