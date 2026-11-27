@@ -37,17 +37,52 @@
   var frame = track && track.closest('.history_sticky');
   if (!track || !frame) return;
   var wide = matchMedia('(min-width: 768px)'), dist = 0, queued = false;
+  var line = track.querySelector('[vci-history="line"]');
+  var path = line && line.querySelector('path');
+
+  // The timeline line: the Webflow-built svg[vci-history="line"] behind the panels gets a path through
+  // every year dot. Where the next dot sits higher or lower (panels whose text is set lower), the line
+  // turns 90° at the boundary between the panels and 90° again into the dot, with rounded corners.
+  // Once drawn, the track's straight stand-in line (its background, what the Designer shows) is
+  // switched off with .is-drawn.
+  function drawLine() {
+    if (!path) return;
+    if (!wide.matches) { track.classList.remove('is-drawn'); return; }
+    var t = track.getBoundingClientRect(), R = 24, cy = null, d = '';
+    each(track.querySelectorAll('.history_dot'), function (dot) {
+      var r = dot.getBoundingClientRect();
+      if (!r.width) return;
+      var panel = dot.closest('.history_item').getBoundingClientRect();
+      var x = r.left + r.width / 2 - t.left, y = r.top + r.height / 2 - t.top, edge = panel.left - t.left;
+      if (cy === null) { d = 'M0 ' + y.toFixed(1); }
+      else if (Math.abs(y - cy) > 1) {
+        var s = y > cy ? 1 : -1, k = Math.min(R, Math.abs(y - cy) / 2);
+        d += ' L' + (edge - k).toFixed(1) + ' ' + cy.toFixed(1) +
+          ' Q' + edge.toFixed(1) + ' ' + cy.toFixed(1) + ' ' + edge.toFixed(1) + ' ' + (cy + s * k).toFixed(1) +
+          ' L' + edge.toFixed(1) + ' ' + (y - s * k).toFixed(1) +
+          ' Q' + edge.toFixed(1) + ' ' + y.toFixed(1) + ' ' + (edge + k).toFixed(1) + ' ' + y.toFixed(1);
+      }
+      d += ' L' + x.toFixed(1) + ' ' + y.toFixed(1);
+      cy = y;
+    });
+    if (cy === null) return;
+    d += ' L' + t.width.toFixed(1) + ' ' + cy.toFixed(1);
+    path.setAttribute('d', d);
+    track.classList.add('is-drawn');
+  }
 
   function measure() {
     if (!wide.matches) {
       section.style.height = track.style.transform = '';
       if (bar) bar.style.transform = '';
       dist = 0;
+      drawLine();
       return;
     }
     dist = Math.max(0, track.scrollWidth - frame.clientWidth);
     section.style.height = frame.offsetHeight + dist + 'px';
     update();
+    drawLine();
   }
   function update() {
     queued = false;
