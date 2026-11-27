@@ -38,7 +38,10 @@
   if (!track || !frame) return;
   var wide = matchMedia('(min-width: 768px)'), dist = 0, queued = false;
   var line = track.querySelector('[vci-history="line"]');
-  var path = line && line.querySelector('path');
+  var path = line && line.querySelector('path:not([vci-history])');
+  // Progress stroke: a second path (brand green) on the same line, drawn up to the middle of the screen.
+  var prog = line && line.querySelector('[vci-history="line-progress"]');
+  var progLen = 0, progXs = [], SAMPLES = 400;
 
   // The timeline line: the Webflow-built svg[vci-history="line"] behind the panels gets a path through
   // every year dot. Where the next dot sits higher or lower (panels whose text is set lower), the line
@@ -69,6 +72,21 @@
     d += ' L' + t.width.toFixed(1) + ' ' + cy.toFixed(1);
     path.setAttribute('d', d);
     track.classList.add('is-drawn');
+    if (prog) {
+      prog.setAttribute('d', d);
+      progLen = prog.getTotalLength();
+      progXs = [];
+      for (var i = 0; i <= SAMPLES; i++) progXs.push(prog.getPointAtLength(progLen * i / SAMPLES).x);
+      prog.style.strokeDasharray = progLen + ' ' + progLen;
+      progress(0);
+    }
+  }
+  // Length along the line where it reaches x (the line only moves right, so x rises with length).
+  function progress(x) {
+    if (!prog || !progLen) return;
+    var lo = 0, hi = SAMPLES;
+    while (lo < hi) { var mid = (lo + hi) >> 1; if (progXs[mid] < x) lo = mid + 1; else hi = mid; }
+    prog.style.strokeDashoffset = (progLen - progLen * lo / SAMPLES).toFixed(1);
   }
 
   function measure() {
@@ -81,8 +99,8 @@
     }
     dist = Math.max(0, track.scrollWidth - frame.clientWidth);
     section.style.height = frame.offsetHeight + dist + 'px';
-    update();
     drawLine();
+    update();
   }
   function update() {
     queued = false;
@@ -91,6 +109,7 @@
     track.style.transform = 'translate3d(' + (-p * dist).toFixed(1) + 'px,0,0)';
     if (bar) bar.style.transform = 'scaleX(' + p.toFixed(4) + ')';
     if (hint) hint.classList.toggle('is-done', p > 0.97);
+    progress(p * dist + frame.clientWidth / 2);
   }
   function queue() { if (!queued) { queued = true; requestAnimationFrame(update); } }
 

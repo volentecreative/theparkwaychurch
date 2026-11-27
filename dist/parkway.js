@@ -1,4 +1,4 @@
-/*! The Parkway Church site code v0.9.71. Built from src/, do not edit. */
+/*! The Parkway Church site code v0.9.72. Built from src/, do not edit. */
 /* ---- src/announcement.js ---- */
 /* Announcement bar [vci-announcement="bar"] inside the sticky nav: --announcement-height = its height (the nav's negative sticky top), removed with 0 when empty. */
 (function () {
@@ -2217,7 +2217,10 @@ window.__scriptDrawPaths = {"Winter":{"width":0.0802,"paths":[{"d":"M.065-.190C.
   if (!track || !frame) return;
   var wide = matchMedia('(min-width: 768px)'), dist = 0, queued = false;
   var line = track.querySelector('[vci-history="line"]');
-  var path = line && line.querySelector('path');
+  var path = line && line.querySelector('path:not([vci-history])');
+  // Progress stroke: a second path (brand green) on the same line, drawn up to the middle of the screen.
+  var prog = line && line.querySelector('[vci-history="line-progress"]');
+  var progLen = 0, progXs = [], SAMPLES = 400;
 
   // The timeline line: the Webflow-built svg[vci-history="line"] behind the panels gets a path through
   // every year dot. Where the next dot sits higher or lower (panels whose text is set lower), the line
@@ -2248,6 +2251,21 @@ window.__scriptDrawPaths = {"Winter":{"width":0.0802,"paths":[{"d":"M.065-.190C.
     d += ' L' + t.width.toFixed(1) + ' ' + cy.toFixed(1);
     path.setAttribute('d', d);
     track.classList.add('is-drawn');
+    if (prog) {
+      prog.setAttribute('d', d);
+      progLen = prog.getTotalLength();
+      progXs = [];
+      for (var i = 0; i <= SAMPLES; i++) progXs.push(prog.getPointAtLength(progLen * i / SAMPLES).x);
+      prog.style.strokeDasharray = progLen + ' ' + progLen;
+      progress(0);
+    }
+  }
+  // Length along the line where it reaches x (the line only moves right, so x rises with length).
+  function progress(x) {
+    if (!prog || !progLen) return;
+    var lo = 0, hi = SAMPLES;
+    while (lo < hi) { var mid = (lo + hi) >> 1; if (progXs[mid] < x) lo = mid + 1; else hi = mid; }
+    prog.style.strokeDashoffset = (progLen - progLen * lo / SAMPLES).toFixed(1);
   }
 
   function measure() {
@@ -2260,8 +2278,8 @@ window.__scriptDrawPaths = {"Winter":{"width":0.0802,"paths":[{"d":"M.065-.190C.
     }
     dist = Math.max(0, track.scrollWidth - frame.clientWidth);
     section.style.height = frame.offsetHeight + dist + 'px';
-    update();
     drawLine();
+    update();
   }
   function update() {
     queued = false;
@@ -2270,6 +2288,7 @@ window.__scriptDrawPaths = {"Winter":{"width":0.0802,"paths":[{"d":"M.065-.190C.
     track.style.transform = 'translate3d(' + (-p * dist).toFixed(1) + 'px,0,0)';
     if (bar) bar.style.transform = 'scaleX(' + p.toFixed(4) + ')';
     if (hint) hint.classList.toggle('is-done', p > 0.97);
+    progress(p * dist + frame.clientWidth / 2);
   }
   function queue() { if (!queued) { queued = true; requestAnimationFrame(update); } }
 
@@ -2303,6 +2322,12 @@ window.__scriptDrawPaths = {"Winter":{"width":0.0802,"paths":[{"d":"M.065-.190C.
     var o = el.closest('[vci-reveal]');
     return !!o && (o.getAttribute('vci-reveal') || '').toLowerCase() === 'false';
   }
+  // Direction: vci-reveal-from="right" | "left" on an ancestor (e.g. a sideways timeline) slides in from
+  // that side instead of rising from below.
+  function rise(el) {
+    var h = el.closest('[vci-reveal-from]'), v = h && h.getAttribute('vci-reveal-from');
+    return v === 'right' ? '2.5rem 0' : v === 'left' ? '-2.5rem 0' : RISE;
+  }
   function num(el, name, fallback) {
     var holder = el.closest('[vci-reveal-' + name + ']');
     var v = holder ? parseFloat(holder.getAttribute('vci-reveal-' + name)) : NaN;
@@ -2325,11 +2350,12 @@ window.__scriptDrawPaths = {"Winter":{"width":0.0802,"paths":[{"d":"M.065-.190C.
     }
 
     // Read every position first, then write: one layout pass.
-    var vh = innerHeight, onLoad = [], waiting = [];
+    var vh = innerHeight, vw = innerWidth, onLoad = [], waiting = [];
     targets.forEach(function (el) {
       var r = el.getBoundingClientRect();
       if (!r.width || !r.height) return; // not rendered: leave alone
-      (r.top < vh && r.bottom > 0 ? onLoad : waiting).push(el);
+      // On screen in both directions: content in a sideways track can be in view vertically but off to the side.
+      (r.top < vh && r.bottom > 0 && r.left < vw && r.right > 0 ? onLoad : waiting).push(el);
     });
 
     // On screen at load: enter now, in reading order. Only when the head part held them
@@ -2339,7 +2365,7 @@ window.__scriptDrawPaths = {"Winter":{"width":0.0802,"paths":[{"d":"M.065-.190C.
     if (early) {
       onLoad.forEach(function (el, k) {
         var media = el.matches(MEDIA);
-        el.animate(media ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, translate: RISE }, { opacity: 1, translate: '0 0' }], {
+        el.animate(media ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, translate: rise(el) }, { opacity: 1, translate: '0 0' }], {
           duration: num(el, 'duration', media ? LOAD_MEDIA : DURATION),
           delay: num(el, 'delay', 0) + LOAD_DELAY + Math.min(k, LOAD_MAX) * LOAD_STAGGER,
           easing: EASE,
@@ -2355,7 +2381,7 @@ window.__scriptDrawPaths = {"Winter":{"width":0.0802,"paths":[{"d":"M.065-.190C.
     function reveal(el, extra) {
       if (!pending.delete(el)) return;
       io.unobserve(el);
-      el.animate([{ opacity: 0, translate: RISE }, { opacity: 1, translate: '0 0' }], {
+      el.animate([{ opacity: 0, translate: rise(el) }, { opacity: 1, translate: '0 0' }], {
         duration: num(el, 'duration', DURATION),
         delay: num(el, 'delay', 0) + (extra || 0),
         easing: EASE,

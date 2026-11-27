@@ -20,6 +20,12 @@
     var o = el.closest('[vci-reveal]');
     return !!o && (o.getAttribute('vci-reveal') || '').toLowerCase() === 'false';
   }
+  // Direction: vci-reveal-from="right" | "left" on an ancestor (e.g. a sideways timeline) slides in from
+  // that side instead of rising from below.
+  function rise(el) {
+    var h = el.closest('[vci-reveal-from]'), v = h && h.getAttribute('vci-reveal-from');
+    return v === 'right' ? '2.5rem 0' : v === 'left' ? '-2.5rem 0' : RISE;
+  }
   function num(el, name, fallback) {
     var holder = el.closest('[vci-reveal-' + name + ']');
     var v = holder ? parseFloat(holder.getAttribute('vci-reveal-' + name)) : NaN;
@@ -42,11 +48,12 @@
     }
 
     // Read every position first, then write: one layout pass.
-    var vh = innerHeight, onLoad = [], waiting = [];
+    var vh = innerHeight, vw = innerWidth, onLoad = [], waiting = [];
     targets.forEach(function (el) {
       var r = el.getBoundingClientRect();
       if (!r.width || !r.height) return; // not rendered: leave alone
-      (r.top < vh && r.bottom > 0 ? onLoad : waiting).push(el);
+      // On screen in both directions: content in a sideways track can be in view vertically but off to the side.
+      (r.top < vh && r.bottom > 0 && r.left < vw && r.right > 0 ? onLoad : waiting).push(el);
     });
 
     // On screen at load: enter now, in reading order. Only when the head part held them
@@ -56,7 +63,7 @@
     if (early) {
       onLoad.forEach(function (el, k) {
         var media = el.matches(MEDIA);
-        el.animate(media ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, translate: RISE }, { opacity: 1, translate: '0 0' }], {
+        el.animate(media ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, translate: rise(el) }, { opacity: 1, translate: '0 0' }], {
           duration: num(el, 'duration', media ? LOAD_MEDIA : DURATION),
           delay: num(el, 'delay', 0) + LOAD_DELAY + Math.min(k, LOAD_MAX) * LOAD_STAGGER,
           easing: EASE,
@@ -72,7 +79,7 @@
     function reveal(el, extra) {
       if (!pending.delete(el)) return;
       io.unobserve(el);
-      el.animate([{ opacity: 0, translate: RISE }, { opacity: 1, translate: '0 0' }], {
+      el.animate([{ opacity: 0, translate: rise(el) }, { opacity: 1, translate: '0 0' }], {
         duration: num(el, 'duration', DURATION),
         delay: num(el, 'delay', 0) + (extra || 0),
         easing: EASE,
