@@ -1,4 +1,4 @@
-/*! The Parkway Church site code v0.9.76. Built from src/, do not edit. */
+/*! The Parkway Church site code v0.9.77. Built from src/, do not edit. */
 /* ---- src/announcement.js ---- */
 /* Announcement bar [vci-announcement="bar"] inside the sticky nav: --announcement-height = its height (the nav's negative sticky top), removed with 0 when empty. */
 (function () {
