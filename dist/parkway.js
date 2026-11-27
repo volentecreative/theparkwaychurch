@@ -1,4 +1,4 @@
-/*! The Parkway Church site code v0.9.68. Built from src/, do not edit. */
+/*! The Parkway Church site code v0.9.69. Built from src/, do not edit. */
 /* ---- src/announcement.js ---- */
 /* Announcement bar [vci-announcement="bar"] inside the sticky nav: --announcement-height = its height (the nav's negative sticky top), removed with 0 when empty. */
 (function () {
@@ -2060,23 +2060,29 @@ window.__scriptDrawPaths = {"Winter":{"width":0.0802,"paths":[{"d":"M.065-.190C.
 
 /* ---- src/history.js ---- */
 /* History timeline (/history). Built in Webflow from the History collection:
-   section_history[vci-history="section"] > history_sticky > Collection List (history_list[vci-history="track"]
-   > history_item[vci-history-layout bound to the Layout option]) + history_hint[vci-history="hint"] with
-   history_progress-bar[vci-history="progress"].
-   - Layout: each item and its history_* parts get the combo is-<layout> (e.g. is-image-bottom, is-wide,
-     is-statement), so every layout is styled in the style panel. "Standard" adds nothing.
-   - Milestones without an image: the image wrapper gets is-empty (display none in Webflow).
+   section_history[vci-history="section"] > history_sticky > history_track[vci-history="track"] holding an
+   intro panel (history_item.is-intro) and the Collection List (history_list-wrapper and history_list are
+   display: contents, so each history_item[vci-history-layout bound to "Panel layout"] is a panel in the
+   track), plus history_hint[vci-history="hint"] with history_progress-bar[vci-history="progress"].
+   - Panel layout: each item and its history_* parts get the combo is-<layout> (is-image-left,
+     is-full-image), so every layout is styled in the style panel. "Image right" is the default look.
+   - Photos left empty in the CMS: their history_image-wrapper gets is-empty (display none in Webflow).
    - 768px and wider: the section is made tall enough that scrolling down moves the track sideways
-     through the sticky frame; the progress bar fills and the "Scroll to continue" hint gets is-done
-     at the end. Narrower: a plain vertical list (styled in Webflow), nothing set here. */
+     through the sticky full-screen frame; the progress bar fills and the "Scroll to continue" hint
+     gets is-done at the end. Narrower: the panels stack (styled in Webflow), nothing is set here.
+   - Smooth scroll: when the page loads Lenis (History page footer code), it is started here.
+     Off under reduced motion; touch keeps native scrolling. */
 (function () {
   var section = document.querySelector('[vci-history="section"]');
   if (!section) return;
   var each = function (list, fn) { Array.prototype.forEach.call(list, fn); };
+  var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  if (window.Lenis && !reduce && !window.__lenis) window.__lenis = new window.Lenis({ autoRaf: true, lerp: 0.09 });
 
   each(section.querySelectorAll('[vci-history-layout]'), function (item) {
     var v = (item.getAttribute('vci-history-layout') || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-');
-    if (!v || v === 'standard') return;
+    if (!v || v === 'image-right') return;
     var cls = 'is-' + v;
     item.classList.add(cls);
     each(item.querySelectorAll('[class*="history_"]'), function (el) { el.classList.add(cls); });
