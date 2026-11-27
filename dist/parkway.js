@@ -1,4 +1,4 @@
-/*! The Parkway Church site code v0.9.79. Built from src/, do not edit. */
+/*! The Parkway Church site code v0.9.80. Built from src/, do not edit. */
 /* ---- src/announcement.js ---- */
 /* Announcement bar [vci-announcement="bar"] inside the sticky nav: --announcement-height = its height (the nav's negative sticky top), removed with 0 when empty. */
 (function () {
@@ -1226,6 +1226,47 @@
   }
 })();
 
+/* ---- src/card-tags.js ---- */
+/* Tags on content cards (/articles). An article's tags are CMS items (Tags collection, multi-reference), and the card
+   is a link component, which can't hold a nested Collection List, so the list item carries it hidden instead:
+   [vci-card-tags="list"] holding one [fs-list-field="tag"] per tag (also what Finsweet filters on). Each tag is shown
+   in the card's eyebrow as a copy of its .content_card-eyebrow-item, so it looks like any other eyebrow entry.
+   Cards Finsweet adds later (infinite load) get theirs too. */
+(function () {
+  function fill(item) {
+    if (!item || item.nodeType !== 1 || item.__cardTags) return;
+    var src = item.querySelector('[vci-card-tags="list"]');
+    var eyebrow = item.querySelector('.content_card-eyebrow-list');
+    var template = eyebrow && eyebrow.querySelector('.content_card-eyebrow-item');
+    if (!src || !template) return;
+    item.__cardTags = true;
+    Array.prototype.forEach.call(src.querySelectorAll('[fs-list-field="tag"]'), function (t) {
+      var name = t.textContent.trim();
+      if (!name) return;
+      var el = template.cloneNode(false);
+      el.textContent = name;
+      el.setAttribute('vci-card-tags', 'item');
+      eyebrow.appendChild(el);
+    });
+  }
+  function scan(root) {
+    Array.prototype.forEach.call((root || document).querySelectorAll('.w-dyn-item'), function (it) {
+      if (it.querySelector('[vci-card-tags="list"]')) fill(it);
+    });
+  }
+  scan();
+  if (!document.querySelector('[vci-card-tags="list"]') || !window.MutationObserver) return;
+  new MutationObserver(function (records) {
+    records.forEach(function (r) {
+      Array.prototype.forEach.call(r.addedNodes, function (n) {
+        if (n.nodeType !== 1) return;
+        if (n.matches('.w-dyn-item') && n.querySelector('[vci-card-tags="list"]')) fill(n);
+        else if (n.querySelector) scan(n);
+      });
+    });
+  }).observe(document.body, { childList: true, subtree: true });
+})();
+
 /* ---- src/pager.js ---- */
 /* Article previous / next: fills [vci-pager="prev"|"next"] from the hidden date-sorted [vci-pager="list"]. */
 (function () {
@@ -1608,7 +1649,7 @@
 /* Sort dropdown for a Finsweet list: [vci-sort="dropdown"] is a Webflow dropdown styled like the filter dropdowns
    (so it opens below the toggle, unlike a native select), holding radio options [vci-sort="option"] and a toggle
    label [vci-sort="label"]. Finsweet still sorts from the hidden select[fs-list-element="sort-trigger"] in the same
-   form: option n picks the select's option n. A sort read from the URL (sort_date=asc) is shown on load.
+   form: option n picks the select's option n. A sort in the URL (sort_date=asc) is shown on load.
    Choosing with the mouse closes the dropdown; arrow keys move through the options and leave it open. */
 (function () {
   Array.prototype.forEach.call(document.querySelectorAll('[vci-sort="dropdown"]'), function (dd) {
@@ -1647,10 +1688,15 @@
       });
     });
     select.addEventListener('change', show);
+    // A sort in the URL (sort_date=asc): Finsweet applies it but leaves the select alone, so match the select
+    // option "date-asc" to it here (without a change event: the list is already sorted that way).
+    new URLSearchParams(location.search).forEach(function (dir, key) {
+      var m = key.match(/^sort_(.+)$/);
+      if (!m) return;
+      var v = m[1] + '-' + dir.toLowerCase();
+      if (select.querySelector('option[value="' + v + '"]')) select.value = v;
+    });
     show();
-    // Finsweet sets the select from the URL after it loads.
-    window.FinsweetAttributes = window.FinsweetAttributes || [];
-    window.FinsweetAttributes.push(['list', function () { setTimeout(show, 0); }]);
   });
 })();
 

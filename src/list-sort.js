@@ -1,7 +1,7 @@
 /* Sort dropdown for a Finsweet list: [vci-sort="dropdown"] is a Webflow dropdown styled like the filter dropdowns
    (so it opens below the toggle, unlike a native select), holding radio options [vci-sort="option"] and a toggle
    label [vci-sort="label"]. Finsweet still sorts from the hidden select[fs-list-element="sort-trigger"] in the same
-   form: option n picks the select's option n. A sort read from the URL (sort_date=asc) is shown on load.
+   form: option n picks the select's option n. A sort in the URL (sort_date=asc) is shown on load.
    Choosing with the mouse closes the dropdown; arrow keys move through the options and leave it open. */
 (function () {
   Array.prototype.forEach.call(document.querySelectorAll('[vci-sort="dropdown"]'), function (dd) {
@@ -40,9 +40,14 @@
       });
     });
     select.addEventListener('change', show);
+    // A sort in the URL (sort_date=asc): Finsweet applies it but leaves the select alone, so match the select
+    // option "date-asc" to it here (without a change event: the list is already sorted that way).
+    new URLSearchParams(location.search).forEach(function (dir, key) {
+      var m = key.match(/^sort_(.+)$/);
+      if (!m) return;
+      var v = m[1] + '-' + dir.toLowerCase();
+      if (select.querySelector('option[value="' + v + '"]')) select.value = v;
+    });
     show();
-    // Finsweet sets the select from the URL after it loads.
-    window.FinsweetAttributes = window.FinsweetAttributes || [];
-    window.FinsweetAttributes.push(['list', function () { setTimeout(show, 0); }]);
   });
 })();

@@ -1,4 +1,4 @@
-/*! The Parkway Church site code v0.9.79. Built from src/, do not edit. */
+/*! The Parkway Church site code v0.9.80. Built from src/, do not edit. */
 /* ---- src/image-sizes-fix.js ---- */
 /* Head: corrects Webflow image sizes attributes before images load. */
 (function(){var d=new WeakSet(),ro='ResizeObserver'in window?new ResizeObserver(function(es){es.forEach(function(e){if(e.contentRect.width&&fix(e.target))ro.unobserve(e.target)})}):null;
@@ -293,8 +293,14 @@ var t;addEventListener('resize',function(){clearTimeout(t);t=setTimeout(function
       var root = document.documentElement;
       root.getAnimations({ subtree: true }).forEach(function (a) {
         var pe = a.effect && a.effect.pseudoElement;
-        if (pe && pe.indexOf('::view-transition') === 0) a.effect.updateTiming({ duration: DURATION, easing: EASE });
+        if (!pe || pe.indexOf('::view-transition') !== 0) return;
+        // The rest of the page (the root snapshot) switches at once: the site's page-transition fade on root
+        // (head code) would otherwise fade the whole page out and back in, flashing the background.
+        if (pe.indexOf('(root)') > -1) a.cancel();
+        else a.effect.updateTiming({ duration: DURATION, easing: EASE });
       });
+      var gone = { opacity: 0 };
+      root.animate([gone, gone], { duration: DURATION, pseudoElement: '::view-transition-old(root)' });
       // Cards: keep the old and new snapshots at their natural size, pinned top-left, so text slides instead of
       // squashing; thumbnails fill their box (the photo is cropped the same way in both views).
       for (var i = 0; i < named.length / 2; i++) {
