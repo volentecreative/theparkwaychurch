@@ -1,4 +1,4 @@
-/*! The Parkway Church site code v0.9.73. Built from src/, do not edit. */
+/*! The Parkway Church site code v0.9.74. Built from src/, do not edit. */
 /* ---- src/announcement.js ---- */
 /* Announcement bar [vci-announcement="bar"] inside the sticky nav: --announcement-height = its height (the nav's negative sticky top), removed with 0 when empty. */
 (function () {
@@ -1292,15 +1292,19 @@
     var given = (player.getAttribute('vci-audio-peaks') || '').split(',').map(parseFloat).filter(function (v) { return !isNaN(v); });
     if (given.length) peaks = given;
 
-    function shape(n) {
-      if (peaks) return function (i) { return peaks[Math.min(peaks.length - 1, Math.floor(i / n * peaks.length))]; };
-      var rnd = seeded(audio.getAttribute('src')), vals = [], v = 0.4;
-      for (var i = 0; i < n; i++) {
+    // Generated once at a fixed resolution, then sampled to however many bars fit, so the shape
+    // stays the same when the row's width changes.
+    if (!peaks) {
+      var rnd = seeded(audio.getAttribute('src')), v = 0.4;
+      peaks = [];
+      for (var k = 0; k < 160; k++) {
         v += (rnd() - 0.5) * 0.5; // a wandering level with speech-like jitter
         v = Math.min(Math.max(v, 0.15), 0.95);
-        vals.push(rnd() < 0.12 ? 0 : Math.min(1, v * (0.55 + rnd() * 0.6)));
+        peaks.push(rnd() < 0.12 ? 0 : Math.min(1, v * (0.55 + rnd() * 0.6)));
       }
-      return function (i) { return vals[i]; };
+    }
+    function shape(n) {
+      return function (i) { return peaks[Math.min(peaks.length - 1, Math.floor(i / n * peaks.length))]; };
     }
     function build() {
       var gap = 3, w = proto.offsetWidth || 3, n = Math.max(12, Math.floor((wave.clientWidth + gap) / (w + gap)));
