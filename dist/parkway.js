@@ -1,4 +1,4 @@
-/*! The Parkway Church site code v0.9.77. Built from src/, do not edit. */
+/*! The Parkway Church site code v0.9.78. Built from src/, do not edit. */
 /* ---- src/announcement.js ---- */
 /* Announcement bar [vci-announcement="bar"] inside the sticky nav: --announcement-height = its height (the nav's negative sticky top), removed with 0 when empty. */
 (function () {
@@ -1528,7 +1528,8 @@
     var options = Array.prototype.slice.call(area.querySelectorAll('label'));
     if (options.length <= SEARCH_MIN) return;
     var none = dd.querySelector('[vci-filters="search-empty"]');
-    input.parentElement.classList.add('is-active');
+    var wrap = input.closest('.media-filters_search') || input.parentElement; // the search_field sits inside it
+    wrap.classList.add('is-active');
     var row = function (label) { return label.closest('.w-dyn-item') || label; };
     var name = function (label) {
       var s = label.querySelector('span:not([fs-list-element])');

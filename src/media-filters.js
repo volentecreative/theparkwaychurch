@@ -50,7 +50,8 @@
     var options = Array.prototype.slice.call(area.querySelectorAll('label'));
     if (options.length <= SEARCH_MIN) return;
     var none = dd.querySelector('[vci-filters="search-empty"]');
-    input.parentElement.classList.add('is-active');
+    var wrap = input.closest('.media-filters_search') || input.parentElement; // the search_field sits inside it
+    wrap.classList.add('is-active');
     var row = function (label) { return label.closest('.w-dyn-item') || label; };
     var name = function (label) {
       var s = label.querySelector('span:not([fs-list-element])');
