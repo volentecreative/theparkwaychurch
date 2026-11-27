@@ -1,4 +1,4 @@
-/*! The Parkway Church site code v0.9.66. Built from src/, do not edit. */
+/*! The Parkway Church site code v0.9.67. Built from src/, do not edit. */
 /* ---- src/announcement.js ---- */
 /* Announcement bar [vci-announcement="bar"] inside the sticky nav: --announcement-height = its height (the nav's negative sticky top), removed with 0 when empty. */
 (function () {
@@ -257,6 +257,33 @@
     else if (travel < -6) hide(false);
   }, { passive: true });
   nav.addEventListener('focusin', function () { hide(false); });
+
+  // Desktop: a hover dropdown left open when the pointer is no longer on it. Scrolling moves the
+  // header out from under a still pointer (and trackpad momentum can end without a pointer event),
+  // so Webflow never sees the leave and the panel stays up. After any scroll or pointer move,
+  // close open dropdowns that are neither under the pointer nor holding keyboard focus. The check
+  // waits a moment, so crossing the gap between a tab and its panel never counts as leaving.
+  if (matchMedia('(hover: hover) and (pointer: fine)').matches) {
+    var STRAY_WAIT = 350, strayQueued = false;
+    var closeStray = function () {
+      strayQueued = false;
+      if (!window.jQuery) return;
+      Array.prototype.forEach.call(nav.querySelectorAll('.w-dropdown-list.w--open'), function (l) {
+        var dd = l.parentElement;
+        if (dd.matches(':hover') || dd.contains(document.activeElement)) return;
+        jQuery(dd).triggerHandler('w-close');
+      });
+    };
+    var queueStray = function () {
+      if (strayQueued || !nav.querySelector('.w-dropdown-list.w--open')) return;
+      strayQueued = true;
+      setTimeout(closeStray, STRAY_WAIT);
+    };
+    addEventListener('scroll', queueStray, { passive: true });
+    document.addEventListener('pointermove', function (e) {
+      if (e.pointerType === 'mouse' && !nav.contains(e.target)) queueStray();
+    }, { passive: true });
+  }
 
   // Desktop: resting the pointer where the hidden header sits brings it back; it stays until the next scroll down.
   // Only a deliberate pause counts: not mid-scroll, no button held, not over something clickable, nothing modal open,
