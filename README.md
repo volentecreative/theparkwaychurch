@@ -15,6 +15,7 @@ measurements and mobile menu) still comes from
 | `src/reveal.js` | Default entrance for headings, text, images and buttons: on page load for what is on screen, on scroll for the rest. |
 | `src/parallax.js` | `[vci-parallax="true"]` (home_hero's Parallax prop): the photo drifts down at 15% of the scroll. Room for it is built in Webflow (image 115% tall, top -15%). |
 | `src/history.js` | /history: full-screen panels (intro + History collection) in one sideways track. "Panel layout" → `is-<layout>` combos, empty photos hidden, (768px+) scroll drives the track in a sticky frame with progress bar + "Scroll to continue" hint. Starts Lenis smooth scroll when the page loads it (History page footer code). |
+| `src/audio-player.js` | `[vci-audio="player"]` pill player built in Webflow (audio-player_*): play/pause, waveform bars copied from one Webflow bar (heights from `vci-audio-peaks` if set, else generated from the audio URL), click/drag/keyboard seek, length then time remaining. |
 | `src/reveal-early.js` | Head: holds reveal targets invisible from before the first paint, so on-screen content enters on load instead of flashing. |
 | `src/nav-dropdown.js` | Connected nav dropdowns (see below). |
 | `src/accordion-highlight.js` | Gliding hover highlight on accordion questions, same as the nav's (see below). |

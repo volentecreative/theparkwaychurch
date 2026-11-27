@@ -1,4 +1,4 @@
-/*! The Parkway Church site code v0.9.70. Built from src/, do not edit. */
+/*! The Parkway Church site code v0.9.71. Built from src/, do not edit. */
 /* ---- src/announcement.js ---- */
 /* Announcement bar [vci-announcement="bar"] inside the sticky nav: --announcement-height = its height (the nav's negative sticky top), removed with 0 when empty. */
 (function () {
@@ -1253,6 +1253,122 @@
   if (!nav.querySelector('[vci-pager="prev"], [vci-pager="next"]')) nav.remove();
 })();
 
+/* ---- src/audio-player.js ---- */
+/* Audio player [vci-audio="player"], built in Webflow (audio-player_*): a play/pause button
+   [vci-audio="toggle"] with two icons (audio-player_icon, and .is-pause), a waveform row
+   [vci-audio="wave"] holding one bar [vci-audio="bar"], a time readout [vci-audio="time"] and the
+   <audio vci-audio="audio"> itself (no native controls).
+   - The one Webflow bar is copied to fill the row. Heights come from vci-audio-peaks on the player
+     (comma-separated 0–1 values, e.g. real peaks stored in the CMS) when present; otherwise a steady
+     shape generated from the audio URL, so each recording keeps its own look.
+   - Playing: icons and the player get .is-playing; bars up to the playhead get .is-played.
+   - Click or drag the waveform to seek; it is a slider for keyboards (arrows ±5s, Home/End).
+   - Time shows the length until playback starts, then the time remaining. */
+(function () {
+  var each = function (list, fn) { Array.prototype.forEach.call(list, fn); };
+  function fmt(s) {
+    if (!isFinite(s) || s < 0) s = 0;
+    s = Math.round(s);
+    var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+    var mm = h ? (m < 10 ? '0' + m : m) : m;
+    return (h ? h + ':' : '') + mm + ':' + (sec < 10 ? '0' + sec : sec);
+  }
+  function seeded(str) { // small deterministic PRNG from a string
+    var h = 2166136261;
+    for (var i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return function () { h ^= h << 13; h ^= h >>> 17; h ^= h << 5; return ((h >>> 0) % 1000) / 1000; };
+  }
+
+  each(document.querySelectorAll('[vci-audio="player"]'), function (player) {
+    var audio = player.querySelector('audio');
+    var toggle = player.querySelector('[vci-audio="toggle"]');
+    var wave = player.querySelector('[vci-audio="wave"]');
+    var proto = wave && wave.querySelector('[vci-audio="bar"]');
+    var time = player.querySelector('[vci-audio="time"]');
+    if (!audio || !audio.getAttribute('src') || !toggle || !wave || !proto) return;
+    var icons = toggle.querySelectorAll('svg');
+    var bars = [], peaks = null, started = false, dragging = false;
+
+    var given = (player.getAttribute('vci-audio-peaks') || '').split(',').map(parseFloat).filter(function (v) { return !isNaN(v); });
+    if (given.length) peaks = given;
+
+    function shape(n) {
+      if (peaks) return function (i) { return peaks[Math.min(peaks.length - 1, Math.floor(i / n * peaks.length))]; };
+      var rnd = seeded(audio.getAttribute('src')), vals = [], v = 0.4;
+      for (var i = 0; i < n; i++) {
+        v += (rnd() - 0.5) * 0.5; // a wandering level with speech-like jitter
+        v = Math.min(Math.max(v, 0.15), 0.95);
+        vals.push(rnd() < 0.12 ? 0 : Math.min(1, v * (0.55 + rnd() * 0.6)));
+      }
+      return function (i) { return vals[i]; };
+    }
+    function build() {
+      var gap = 3, w = proto.offsetWidth || 3, n = Math.max(12, Math.floor((wave.clientWidth + gap) / (w + gap)));
+      if (n === bars.length) return;
+      each(bars.slice(1), function (b) { b.remove(); });
+      bars = [proto];
+      for (var i = 1; i < n; i++) { var b = proto.cloneNode(true); wave.appendChild(b); bars.push(b); }
+      var h = shape(n);
+      bars.forEach(function (b, i) { b.style.height = Math.round(h(i) * 100) + '%'; });
+      paint();
+    }
+    function paint() {
+      var d = audio.duration, p = d ? audio.currentTime / d : 0, upto = Math.round(p * bars.length);
+      bars.forEach(function (b, i) { b.classList.toggle('is-played', i < upto); });
+      if (time) time.textContent = fmt(started && d ? d - audio.currentTime : d);
+      wave.setAttribute('aria-valuenow', Math.round(audio.currentTime));
+      wave.setAttribute('aria-valuetext', fmt(audio.currentTime) + ' of ' + fmt(d));
+    }
+    function state() {
+      var on = !audio.paused;
+      player.classList.toggle('is-playing', on);
+      each(icons, function (s) { s.classList.toggle('is-playing', on); });
+      toggle.setAttribute('aria-label', on ? 'Pause' : 'Play');
+    }
+    function seekTo(clientX) {
+      var r = wave.getBoundingClientRect(), d = audio.duration;
+      if (!d) return;
+      audio.currentTime = Math.min(Math.max((clientX - r.left) / r.width, 0), 1) * d;
+      started = true;
+      paint();
+    }
+
+    toggle.addEventListener('click', function () {
+      started = true;
+      if (audio.paused) audio.play(); else audio.pause();
+    });
+    ['play', 'pause', 'ended'].forEach(function (t) { audio.addEventListener(t, state); });
+    audio.addEventListener('timeupdate', paint);
+    audio.addEventListener('loadedmetadata', function () {
+      wave.setAttribute('aria-valuemin', 0);
+      wave.setAttribute('aria-valuemax', Math.round(audio.duration));
+      paint();
+    });
+    wave.addEventListener('pointerdown', function (e) {
+      dragging = true;
+      wave.setPointerCapture(e.pointerId);
+      seekTo(e.clientX);
+    });
+    wave.addEventListener('pointermove', function (e) { if (dragging) seekTo(e.clientX); });
+    ['pointerup', 'pointercancel'].forEach(function (t) { wave.addEventListener(t, function () { dragging = false; }); });
+    wave.addEventListener('keydown', function (e) {
+      var d = audio.duration, step = { ArrowRight: 5, ArrowUp: 5, ArrowLeft: -5, ArrowDown: -5 }[e.key];
+      if (!d) return;
+      if (step) audio.currentTime = Math.min(Math.max(audio.currentTime + step, 0), d);
+      else if (e.key === 'Home') audio.currentTime = 0;
+      else if (e.key === 'End') audio.currentTime = d;
+      else return;
+      e.preventDefault();
+      started = true;
+      paint();
+    });
+
+    build();
+    if (window.ResizeObserver) new ResizeObserver(build).observe(wave);
+    state();
+  });
+})();
+
 /* ---- src/media-item.js ---- */
 /* Media item page [vci-media="component"]: Watch/Listen switch, breadcrumb + "View series" links into the /media filters, numbered series list with the current item marked. Drops whatever has no data. */
 (function () {
@@ -1263,11 +1379,13 @@
   function filter(field, value) { return '/media?' + field + '_equal=' + encodeURIComponent(JSON.stringify([value])); }
 
   // Watch / Listen
+  // [vci-media="listen"] is the audio player (audio-player.js) with the <audio> inside it, or a bare <audio>.
   var watch = q('watch'), audio = q('listen'), mode = q('mode');
+  var audioEl = audio && (audio.tagName === 'AUDIO' ? audio : audio.querySelector('audio'));
   var video = watch && watch.querySelector('.w-video, iframe');
   var frame = video && (video.tagName === 'IFRAME' ? video : video.querySelector('iframe'));
   var hasVideo = !!(frame && frame.getAttribute('src'));
-  var hasAudio = !!(audio && audio.getAttribute('src'));
+  var hasAudio = !!(audioEl && audioEl.getAttribute('src'));
   if (!hasAudio && audio) audio.remove();
   if (!hasVideo && video) video.remove();
   if (!(hasVideo && hasAudio)) { if (mode) mode.remove(); }
@@ -1283,7 +1401,7 @@
       video.classList.toggle('is-hidden', listen);
       audio.classList.toggle('is-hidden', !listen);
       if (listen) frame.removeAttribute('src'); // stops the video
-      else { audio.pause(); if (!frame.getAttribute('src')) frame.setAttribute('src', src); }
+      else { audioEl.pause(); if (!frame.getAttribute('src')) frame.setAttribute('src', src); }
     };
     set('watch');
     mode.classList.add('is-ready'); // hidden in the Designer until this runs; without it video and audio both show

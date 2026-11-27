@@ -7,11 +7,13 @@
   function filter(field, value) { return '/media?' + field + '_equal=' + encodeURIComponent(JSON.stringify([value])); }
 
   // Watch / Listen
+  // [vci-media="listen"] is the audio player (audio-player.js) with the <audio> inside it, or a bare <audio>.
   var watch = q('watch'), audio = q('listen'), mode = q('mode');
+  var audioEl = audio && (audio.tagName === 'AUDIO' ? audio : audio.querySelector('audio'));
   var video = watch && watch.querySelector('.w-video, iframe');
   var frame = video && (video.tagName === 'IFRAME' ? video : video.querySelector('iframe'));
   var hasVideo = !!(frame && frame.getAttribute('src'));
-  var hasAudio = !!(audio && audio.getAttribute('src'));
+  var hasAudio = !!(audioEl && audioEl.getAttribute('src'));
   if (!hasAudio && audio) audio.remove();
   if (!hasVideo && video) video.remove();
   if (!(hasVideo && hasAudio)) { if (mode) mode.remove(); }
@@ -27,7 +29,7 @@
       video.classList.toggle('is-hidden', listen);
       audio.classList.toggle('is-hidden', !listen);
       if (listen) frame.removeAttribute('src'); // stops the video
-      else { audio.pause(); if (!frame.getAttribute('src')) frame.setAttribute('src', src); }
+      else { audioEl.pause(); if (!frame.getAttribute('src')) frame.setAttribute('src', src); }
     };
     set('watch');
     mode.classList.add('is-ready'); // hidden in the Designer until this runs; without it video and audio both show
