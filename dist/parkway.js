@@ -1,4 +1,4 @@
-/*! The Parkway Church site code v0.9.78. Built from src/, do not edit. */
+/*! The Parkway Church site code v0.9.79. Built from src/, do not edit. */
 /* ---- src/announcement.js ---- */
 /* Announcement bar [vci-announcement="bar"] inside the sticky nav: --announcement-height = its height (the nav's negative sticky top), removed with 0 when empty. */
 (function () {
@@ -1528,7 +1528,7 @@
     var options = Array.prototype.slice.call(area.querySelectorAll('label'));
     if (options.length <= SEARCH_MIN) return;
     var none = dd.querySelector('[vci-filters="search-empty"]');
-    var wrap = input.closest('.media-filters_search') || input.parentElement; // the search_field sits inside it
+    var wrap = input.closest('.list-filters_search') || input.parentElement; // the search_field sits inside it
     wrap.classList.add('is-active');
     var row = function (label) { return label.closest('.w-dyn-item') || label; };
     var name = function (label) {
@@ -1602,6 +1602,56 @@
     form.addEventListener('change', update);
     update();
   }]);
+})();
+
+/* ---- src/list-sort.js ---- */
+/* Sort dropdown for a Finsweet list: [vci-sort="dropdown"] is a Webflow dropdown styled like the filter dropdowns
+   (so it opens below the toggle, unlike a native select), holding radio options [vci-sort="option"] and a toggle
+   label [vci-sort="label"]. Finsweet still sorts from the hidden select[fs-list-element="sort-trigger"] in the same
+   form: option n picks the select's option n. A sort read from the URL (sort_date=asc) is shown on load.
+   Choosing with the mouse closes the dropdown; arrow keys move through the options and leave it open. */
+(function () {
+  Array.prototype.forEach.call(document.querySelectorAll('[vci-sort="dropdown"]'), function (dd) {
+    var scope = dd.closest('[fs-list-element="filters"]') || document;
+    var select = scope.querySelector('select[fs-list-element="sort-trigger"]');
+    var radios = Array.prototype.slice.call(dd.querySelectorAll('input[vci-sort="option"]'));
+    var label = dd.querySelector('[vci-sort="label"]');
+    if (!select || !radios.length) return;
+    var pointer = false;
+
+    function text(radio) {
+      var l = radio.closest('label');
+      return l ? l.textContent.trim() : '';
+    }
+    function show() { // the select's current value → checked radio + toggle label
+      var i = select.selectedIndex < 0 ? 0 : select.selectedIndex;
+      var r = radios[i] || radios[0];
+      r.checked = true;
+      if (label) label.textContent = text(r);
+    }
+    function close() {
+      if (window.jQuery) window.jQuery(dd).triggerHandler('w-close.w-dropdown');
+      else { var t = dd.querySelector('.w-dropdown-toggle'); if (t && t.classList.contains('w--open')) t.click(); }
+    }
+
+    dd.addEventListener('pointerdown', function () { pointer = true; });
+    dd.addEventListener('keydown', function () { pointer = false; });
+    radios.forEach(function (r, i) {
+      r.addEventListener('change', function () {
+        if (!r.checked || !select.options[i]) return;
+        select.value = select.options[i].value;
+        select.dispatchEvent(new Event('input', { bubbles: true }));
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+        if (label) label.textContent = text(r);
+        if (pointer) close();
+      });
+    });
+    select.addEventListener('change', show);
+    show();
+    // Finsweet sets the select from the URL after it loads.
+    window.FinsweetAttributes = window.FinsweetAttributes || [];
+    window.FinsweetAttributes.push(['list', function () { setTimeout(show, 0); }]);
+  });
 })();
 
 /* ---- src/connected-dropdown.js ---- */
