@@ -7,7 +7,7 @@ const bundles = {
   // footer: order matters. buttons draws the pill that nav-dropdown hangs off.
   'dist/parkway.js': ['src/announcement.js', 'src/button-icons.js', 'src/buttons.js', 'src/nav-scroll.js', 'src/nav-toggle.js', 'src/nav-dropdown.js', 'src/accordion-highlight.js', 'src/form-validate.js', 'src/form-submit.js', 'src/read-time.js', 'src/card-date.js', 'src/pager.js', 'src/audio-player.js', 'src/media-item.js', 'src/media-filters.js', 'src/connected-dropdown.js', 'src/fluid-scroll.js', 'src/hover-highlight.js', 'src/seasons.js', 'src/events-calendar.js', 'src/script-draw-paths.js', 'src/script-draw.js', 'src/parallax.js', 'src/history.js', 'src/reveal.js'],
   // head: has to run before images start loading / before the first paint.
-  'dist/parkway-head.js': ['src/image-sizes-fix.js', 'src/script-draw-early.js', 'src/reveal-early.js', 'src/list-filter-early.js'],
+  'dist/parkway-head.js': ['src/image-sizes-fix.js', 'src/script-draw-early.js', 'src/reveal-early.js', 'src/list-filter-early.js', 'src/media-view.js'],
 };
 
 mkdirSync('dist', { recursive: true });
