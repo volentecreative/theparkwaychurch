@@ -13,6 +13,7 @@ measurements and mobile menu) still comes from
 | `src/nav-scroll.js` | Header slides away on scroll down and back on scroll up. Closes an open dropdown after 8px of scrolling down. |
 | `src/nav-toggle.js` | Mirrors the hamburger's `is-open` onto its lines, so the X is styled in the panel. |
 | `src/reveal.js` | Default entrance for headings, text, images and buttons: on page load for what is on screen, on scroll for the rest. |
+| `src/parallax.js` | `[vci-parallax="true"]` (home_hero's Parallax prop): the photo drifts down at 15% of the scroll. Room for it is built in Webflow (image 115% tall, top -15%). |
 | `src/reveal-early.js` | Head: holds reveal targets invisible from before the first paint, so on-screen content enters on load instead of flashing. |
 | `src/nav-dropdown.js` | Connected nav dropdowns (see below). |
 | `src/accordion-highlight.js` | Gliding hover highlight on accordion questions, same as the nav's (see below). |
