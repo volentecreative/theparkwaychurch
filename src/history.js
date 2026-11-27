@@ -86,7 +86,21 @@
     if (!prog || !progLen) return;
     var lo = 0, hi = SAMPLES;
     while (lo < hi) { var mid = (lo + hi) >> 1; if (progXs[mid] < x) lo = mid + 1; else hi = mid; }
-    prog.style.strokeDashoffset = (progLen - progLen * lo / SAMPLES).toFixed(1);
+    // Interpolate within the sample so the stroke moves smoothly, not in sample-sized jumps.
+    var f = lo;
+    if (lo > 0 && progXs[lo] > progXs[lo - 1]) f = lo - 1 + Math.min(Math.max((x - progXs[lo - 1]) / (progXs[lo] - progXs[lo - 1]), 0), 1);
+    progTarget = progLen * f / SAMPLES;
+    if (!progRaf) progRaf = requestAnimationFrame(progStep);
+  }
+  // Ease the drawn length toward the target each frame, so the vertical turns (which have no
+  // horizontal travel of their own) draw over a few frames instead of appearing at once.
+  var progCur = 0, progTarget = 0, progRaf = 0;
+  function progStep() {
+    progRaf = 0;
+    var dlt = progTarget - progCur;
+    progCur = Math.abs(dlt) < 0.5 ? progTarget : progCur + dlt * (reduce ? 1 : 0.18);
+    prog.style.strokeDashoffset = (progLen - progCur).toFixed(1);
+    if (progCur !== progTarget) progRaf = requestAnimationFrame(progStep);
   }
 
   function measure() {

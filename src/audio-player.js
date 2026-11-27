@@ -107,6 +107,24 @@
       paint();
     });
 
+    // Speed [vci-audio="speed"]: each press steps through the rates; the button shows the current one.
+    var speed = player.querySelector('[vci-audio="speed"]'), RATES = [1, 1.25, 1.5, 2, 0.75];
+    if (speed) speed.addEventListener('click', function () {
+      var r = RATES[(RATES.indexOf(audio.playbackRate) + 1) % RATES.length] || 1;
+      audio.playbackRate = r;
+      speed.textContent = r + '×';
+      speed.setAttribute('aria-label', 'Playback speed ' + r + '×');
+    });
+    // Download [vci-audio="download"]: links to the file. ("download" is a reserved attribute in Webflow.)
+    // Browsers only honour download= for same-origin files; from another host it opens in a new tab.
+    var dl = player.querySelector('[vci-audio="download"]');
+    if (dl) {
+      dl.setAttribute('href', audio.getAttribute('src'));
+      dl.setAttribute('download', '');
+      dl.setAttribute('target', '_blank');
+      dl.setAttribute('rel', 'noopener');
+    }
+
     build();
     if (window.ResizeObserver) new ResizeObserver(build).observe(wave);
     state();
